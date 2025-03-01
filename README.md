@@ -1,50 +1,113 @@
-# Welcome to your Expo app 👋
+# Dripmax
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A React Native app that lets users take photos of their outfits and get AI ratings.
 
-## Get started
+## Features
 
-1. Install dependencies
+- Authentication with Google and Apple Sign-In via Supabase
+- Camera integration for taking outfit photos
+- AI-powered outfit rating (coming soon)
+- Dark mode support
+- Outfit history tracking
 
-   ```bash
-   npm install
-   ```
+## Tech Stack
 
-2. Start the app
+- React Native with Expo
+- Expo Router for navigation
+- Zustand for state management
+- Supabase for authentication and database
+- TypeScript for type safety
 
-   ```bash
-    npx expo start
-   ```
+## Getting Started
 
-In the output, you'll find options to open the app in a
+### Prerequisites
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- Node.js (v14 or later)
+- npm or yarn
+- Expo CLI
+- Supabase account
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Installation
 
-## Get a fresh project
-
-When you're ready, run:
-
+1. Clone the repository:
 ```bash
-npm run reset-project
+git clone https://github.com/yourusername/dripmax.git
+cd dripmax
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Install dependencies:
+```bash
+npm install
+```
 
-## Learn more
+3. Set up environment variables:
+   - Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+   - Update the `.env` file with your Supabase credentials
 
-To learn more about developing your project with Expo, look at the following resources:
+4. Set up Supabase:
+   - Create a new Supabase project
+   - Enable Google and Apple authentication providers in the Auth settings
+   - Add your Supabase URL and anon key to the `.env` file
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+5. Configure OAuth providers:
+   - Set up Google OAuth credentials in the Google Cloud Console
+   - Set up Apple Sign In in the Apple Developer Portal
+   - Add the redirect URL `dripmax://auth/callback` to both providers
 
-## Join the community
+6. Start the development server:
+```bash
+npm start
+```
 
-Join our community of developers creating universal apps.
+## Project Structure
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- `app/` - Expo Router screens and layouts
+  - `(auth)/` - Authentication screens
+  - `(protected)/` - Protected screens (require authentication)
+- `components/` - Reusable UI components
+- `hooks/` - Custom React hooks
+- `services/` - API and service integrations
+- `stores/` - Zustand state stores
+- `constants/` - App-wide constants and configuration
+
+## Authentication Flow
+
+1. User opens the app
+2. If not authenticated, user is redirected to the login screen
+3. User signs in with Google or Apple
+4. On successful authentication, user is redirected to the home screen
+5. Authentication state is persisted using SecureStore
+
+## Development
+
+### Adding New Screens
+
+1. Create a new file in the appropriate directory under `app/`
+2. Export a React component as the default export
+3. The file name will determine the route path
+
+### State Management
+
+- Use Zustand stores for global state management
+- Create stores in the `stores/` directory
+- Use the immer middleware for complex state updates
+
+## Troubleshooting
+
+### Authentication Issues
+
+- Make sure your Supabase URL and anon key are correctly set in the `.env` file
+- Check that your OAuth providers are properly configured in Supabase
+- Verify that the redirect URL `dripmax://auth/callback` is added to your OAuth providers
+
+### Navigation Issues
+
+- If you encounter navigation errors, check that your route paths are correctly formatted
+- Make sure all screen components have a proper default export
+
+## License
+
+MIT

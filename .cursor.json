@@ -1,0 +1,220 @@
+{
+    "rules": [
+      {
+        "condition": {
+          "pattern": "**/*"
+        },
+        "action": {
+          "projectContext": "React Native mobile app using Expo Router with Zustand for state management.",
+          "aiAssistance": "enabled"
+        }
+      },
+      {
+        "condition": {
+          "pattern": "app/**/*.tsx"
+        },
+        "action": {
+          "aiAssistance": "enhanced",
+          "formatOnSave": true,
+          "tabSize": 2,
+          "contextHints": [
+            "Expo Router file-based navigation",
+            "Always use functional components with hooks",
+            "Avoid inline styles - use StyleSheet or themed components",
+            "State management via Zustand hooks",
+            "Props should have TypeScript interfaces"
+          ]
+        }
+      },
+      {
+        "condition": {
+          "pattern": "app/_layout.tsx"
+        },
+        "action": {
+          "aiAssistance": "cautious",
+          "formatOnSave": true,
+          "tabSize": 2,
+          "contextHints": [
+            "Root layout for Expo Router",
+            "Contains providers and global configuration",
+            "Be careful with modifications as it affects the entire app"
+          ]
+        }
+      },
+      {
+        "condition": {
+          "pattern": "app/(tabs)/_layout.tsx"
+        },
+        "action": {
+          "aiAssistance": "cautious",
+          "formatOnSave": true,
+          "tabSize": 2,
+          "contextHints": [
+            "Tab navigation configuration",
+            "Defines tab bar appearance and behavior",
+            "Import screens from app directory"
+          ]
+        }
+      },
+      {
+        "condition": {
+          "pattern": "components/**/*.tsx"
+        },
+        "action": {
+          "aiAssistance": "enhanced",
+          "formatOnSave": true,
+          "tabSize": 2,
+          "contextHints": [
+            "Shared reusable components",
+            "Should be stateless or use local state only",
+            "Avoid feature-specific logic",
+            "Props should have TypeScript interfaces",
+            "Document component usage with JSDoc"
+          ]
+        }
+      },
+      {
+        "condition": {
+          "pattern": "components/ui/**/*.tsx"
+        },
+        "action": {
+          "aiAssistance": "enhanced",
+          "formatOnSave": true,
+          "tabSize": 2,
+          "contextHints": [
+            "Low-level UI components",
+            "Platform-specific implementations (.ios.tsx, .tsx)",
+            "Focus on presentation, not business logic",
+            "Use theme variables from hooks/useThemeColor"
+          ]
+        }
+      },
+      {
+        "condition": {
+          "pattern": "hooks/**/*.ts"
+        },
+        "action": {
+          "aiAssistance": "enhanced",
+          "formatOnSave": true,
+          "tabSize": 2,
+          "contextHints": [
+            "React hooks for shared functionality",
+            "Platform-specific implementations (.web.ts, .ts)",
+            "Return properly typed values",
+            "Document usage with JSDoc"
+          ]
+        }
+      },
+      {
+        "condition": {
+          "pattern": "stores/**/*.ts"
+        },
+        "action": {
+          "aiAssistance": "enhanced",
+          "formatOnSave": true,
+          "tabSize": 2,
+          "contextHints": [
+            "Use Zustand with immer middleware for complex updates",
+            "Define TypeScript interfaces for state",
+            "Follow single responsibility principle - one store per domain",
+            "Export custom hooks for consuming components"
+          ]
+        }
+      },
+      {
+        "condition": {
+          "pattern": "constants/**/*.ts"
+        },
+        "action": {
+          "aiAssistance": "enabled",
+          "formatOnSave": true,
+          "tabSize": 2,
+          "contextHints": [
+            "App-wide constants and configuration values",
+            "Theme colors and design tokens",
+            "Use TypeScript enums or const objects"
+          ]
+        }
+      },
+      {
+        "condition": {
+          "pattern": "**/*.test.{ts,tsx}"
+        },
+        "action": {
+          "aiAssistance": "enabled",
+          "formatOnSave": true,
+          "tabSize": 2,
+          "contextHints": [
+            "Jest test files",
+            "Follow AAA pattern (Arrange-Act-Assert)",
+            "Mock external dependencies",
+            "Use React Native Testing Library for components"
+          ]
+        }
+      },
+      {
+        "condition": {
+          "pattern": "app.json"
+        },
+        "action": {
+          "aiAssistance": "cautious",
+          "formatOnSave": false,
+          "contextHints": [
+            "Expo configuration file",
+            "Modify carefully - controls critical Expo settings"
+          ]
+        }
+      },
+      {
+        "condition": {
+          "pattern": "assets/**/*"
+        },
+        "action": {
+          "aiAssistance": "minimal",
+          "contextHints": [
+            "Static assets like images and fonts",
+            "Don't modify binary files"
+          ]
+        }
+      }
+    ],
+    "directoryStructure": {
+      "app": "Expo Router pages and layouts",
+      "app/(tabs)": "Tab-based navigation screens",
+      "components": "Shared UI components used across the app",
+      "components/ui": "Low-level UI components, some with platform-specific implementations",
+      "hooks": "Custom React hooks",
+      "constants": "App-wide constants and configuration values",
+      "assets": "Static assets like images and fonts",
+      "assets/fonts": "Custom font files",
+      "assets/images": "Image assets"
+    },
+    "qualityStandards": {
+      "components": [
+        "Keep components small and focused on a single responsibility",
+        "Use functional components with hooks over class components",
+        "Avoid prop drilling - use Zustand when state needs to be shared",
+        "Separate business logic from UI components",
+        "Handle errors and loading states explicitly"
+      ],
+      "state": [
+        "Use Zustand for state management",
+        "Keep stores focused on single domains",
+        "Use immer for complex state updates",
+        "Include proper TypeScript types for store state"
+      ],
+      "navigation": [
+        "Follow Expo Router conventions for file-based routing",
+        "Use _layout.tsx files for navigation structure",
+        "Define proper TypeScript types for route params",
+        "Create typed navigation helpers for complex flows"
+      ],
+      "general": [
+        "Use TypeScript properly - avoid any types",
+        "Follow consistent naming conventions",
+        "Write unit tests for business logic",
+        "Handle async operations with proper loading and error states",
+        "Follow React Native performance best practices"
+      ]
+    }
+  }
