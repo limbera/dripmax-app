@@ -1,14 +1,15 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Slot, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useProtectedRoute } from '../hooks/useProtectedRoute';
 import { useAuthStore } from '../stores/authStore';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { navigationLogger } from '../utils/logger';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -17,20 +18,39 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { initialize, setupAuthListener } = useAuthStore();
+  const { initialize: initializeSubscription } = useSubscriptionStore();
+  const isMounted = useRef(false);
+  const [isReady, setIsReady] = useState(false);
   
-  // Use the protected route hook to handle auth navigation
-  useProtectedRoute();
-  
+  // Load fonts
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  // Initialize auth state listener
+  // Always call useProtectedRoute, but pass isReady to control its behavior
+  useProtectedRoute();
+
+  // Set mounted status after first render
   useEffect(() => {
-    navigationLogger.info('Root layout effect running');
+    isMounted.current = true;
+    navigationLogger.info('Root layout mounted');
+    return () => {
+      isMounted.current = false;
+      navigationLogger.info('Root layout unmounted');
+    };
+  }, []);
+  
+  // Initialize auth state listener and subscription
+  useEffect(() => {
+    if (!isMounted.current) return;
+    
+    navigationLogger.info('Root layout initializing auth and subscription');
     
     // Initialize the auth store
     initialize();
+    
+    // Initialize RevenueCat
+    initializeSubscription();
     
     // Set up the auth state listener
     navigationLogger.info('Setting up auth listener');
@@ -41,7 +61,15 @@ export default function RootLayout() {
       navigationLogger.debug('Cleaning up auth listener');
       unsubscribe();
     };
-  }, [initialize, setupAuthListener]);
+  }, [initialize, setupAuthListener, initializeSubscription]);
+
+  // Mark the layout as ready after initialization and fonts are loaded
+  useEffect(() => {
+    if (isMounted.current && loaded) {
+      navigationLogger.info('Root layout ready for protected route navigation');
+      setIsReady(true);
+    }
+  }, [loaded]);
 
   useEffect(() => {
     if (loaded) {
@@ -55,12 +83,8 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(protected)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+      {/* Use Slot for the initial render to prevent navigation errors */}
+      <Slot />
       <StatusBar style="auto" />
     </ThemeProvider>
   );

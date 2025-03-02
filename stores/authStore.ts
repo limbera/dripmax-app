@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 import { authLogger } from '../utils/logger';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { isAppleAuthAvailable, formatAppleUserData } from '../utils/appleAuth';
+import Constants from 'expo-constants';
 
 // Define the WebBrowser result type to include the URL property
 interface WebBrowserAuthSessionResult {
@@ -97,12 +98,29 @@ export const useAuthStore = create<AuthState>()(
           } : null
         });
         
+        // Update the state with the new session information
         set(state => {
+          authLogger.debug('Updating auth store with new session state', {
+            previouslyInitialized: state.initialized,
+            previouslyAuthenticated: !!state.session
+          });
+          
           state.session = session;
           state.user = session?.user || null;
           state.isLoading = false;
           state.initialized = true;
         });
+        
+        // Important: Log the final state to help with debugging
+        setTimeout(() => {
+          const currentState = get();
+          authLogger.debug('Auth store state after update', {
+            isInitialized: currentState.initialized,
+            isAuthenticated: !!currentState.session,
+            hasUser: !!currentState.user,
+            userId: currentState.user?.id
+          });
+        }, 100);
       });
     },
 
@@ -154,8 +172,7 @@ export const useAuthStore = create<AuthState>()(
           state.error = null;
         });
 
-        // Get the redirect URL from environment variables or use a default
-        const redirectUrl = process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL || 'dripmax://auth/callback';
+        const redirectUrl = Constants.expoConfig?.extra?.authRedirectUrl || 'dripmax://auth/callback';
         authLogger.debug('Using redirect URL', { redirectUrl });
 
         // Start the OAuth flow with Supabase
@@ -367,7 +384,7 @@ export const useAuthStore = create<AuthState>()(
 
         // Fall back to web-based authentication for non-iOS platforms or if native auth failed
         authLogger.debug('Using web-based Apple authentication');
-        const redirectUrl = process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL || 'dripmax://auth/callback';
+        const redirectUrl = Constants.expoConfig?.extra?.authRedirectUrl || 'dripmax://auth/callback';
         authLogger.debug('Using redirect URL', { redirectUrl });
 
         const { data, error } = await supabase.auth.signInWithOAuth({

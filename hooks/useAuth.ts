@@ -15,6 +15,7 @@ export const useAuth = () => {
     signOut 
   } = useAuthStore();
 
+  // Initialize auth if not already initialized
   useEffect(() => {
     authLogger.debug('useAuth effect running', {
       hasUser: !!user,
@@ -29,15 +30,22 @@ export const useAuth = () => {
     }
   }, [initialized, initialize, user, session, isLoading]);
 
-  // Log when auth state changes
+  // Enhanced logging for auth state changes
   useEffect(() => {
-    authLogger.debug('Auth state updated', {
+    const isAuthenticated = !!session;
+    
+    authLogger.debug('Auth state updated in useAuth hook', {
       hasUser: !!user,
       hasSession: !!session,
       isLoading,
       initialized,
-      isAuthenticated: !!session
+      isAuthenticated
     });
+    
+    // Force update of auth-dependent components
+    if (initialized && !isLoading && isAuthenticated) {
+      authLogger.info('User authenticated and initialization complete');
+    }
   }, [user, session, isLoading, initialized]);
 
   return {

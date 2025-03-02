@@ -6,9 +6,9 @@ import * as Linking from 'expo-linking';
 import { supabaseLogger } from '../utils/logger';
 
 // Get environment variables
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-const redirectUrl = process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL || 'dripmax://auth/callback';
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey;
+const redirectUrl = Constants.expoConfig?.extra?.authRedirectUrl;
 
 // Create a custom storage adapter for Supabase
 const ExpoSecureStoreAdapter = {
