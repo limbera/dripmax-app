@@ -308,228 +308,82 @@ export const useAuthStore = create<AuthState>()(
         // Check if native Apple authentication is available
         const isNativeAppleAuthAvailable = await isAppleAuthAvailable();
 
-        // Use native Apple authentication if available
-        if (isNativeAppleAuthAvailable) {
-          authLogger.debug('Using native Apple authentication');
-          
-          try {
-            // Request Apple authentication
-            const credential = await AppleAuthentication.signInAsync({
-              requestedScopes: [
-                AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-                AppleAuthentication.AppleAuthenticationScope.EMAIL,
-              ],
-            });
-            
-            const userData = formatAppleUserData(credential);
-            authLogger.debug('Apple authentication successful', { 
-              identityToken: credential.identityToken ? 'present' : 'missing',
-              user: userData
-            });
-            
-            if (credential.identityToken) {
-              // Sign in with Supabase using the Apple identity token
-              const { data: sessionData, error: sessionError } = await supabase.auth.signInWithIdToken({
-                provider: 'apple',
-                token: credential.identityToken,
-                // Pass user data if needed
-              });
-              
-              if (sessionError) {
-                authLogger.error('Error signing in with Apple identity token', { error: sessionError.message });
-                throw sessionError;
-              }
-              
-              authLogger.debug('Supabase sign-in with Apple identity token successful', { 
-                hasSession: !!sessionData.session,
-                user: sessionData.session?.user ? {
-                  id: sessionData.session.user.id,
-                  email: sessionData.session.user.email
-                } : null
-              });
-              
-              // Update the state with the new session
-              set((state) => {
-                state.session = sessionData.session;
-                state.user = sessionData.session?.user || null;
-                state.isLoading = false;
-              });
-              
-              return;
-            } else {
-              throw new Error('No identity token received from Apple');
-            }
-          } catch (appleAuthError: any) {
-            // If the user cancels the Apple sign-in, don't treat it as an error
-            if (appleAuthError.code === 'ERR_CANCELED') {
-              authLogger.debug('User canceled Apple sign-in');
-              set((state) => {
-                state.isLoading = false;
-              });
-              return;
-            }
-            
-            // For other errors, log and fall back to web-based authentication
-            authLogger.error('Error with native Apple authentication', { 
-              error: appleAuthError.message,
-              code: appleAuthError.code
-            });
-            
-            // If there's a specific error that indicates we should fall back, log it
-            authLogger.debug('Falling back to web-based Apple authentication');
-          }
-        } else {
-          authLogger.debug('Native Apple authentication not available, using web-based authentication');
+        if (!isNativeAppleAuthAvailable) {
+          throw new Error('Apple authentication is not available on this device');
         }
 
-        // Fall back to web-based authentication for non-iOS platforms or if native auth failed
-        authLogger.debug('Using web-based Apple authentication');
-        const redirectUrl = Constants.expoConfig?.extra?.authRedirectUrl || 'dripmax://auth/callback';
-        authLogger.debug('Using redirect URL', { redirectUrl });
-
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'apple',
-          options: {
-            redirectTo: redirectUrl,
-            skipBrowserRedirect: true,
-          },
+        // Request Apple authentication
+        authLogger.debug('Using native Apple authentication');
+        const credential = await AppleAuthentication.signInAsync({
+          requestedScopes: [
+            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+            AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          ],
         });
+        
+        // Format user data for logging only - not needed for Supabase auth
+        const userData = formatAppleUserData(credential);
+        authLogger.debug('Apple authentication successful', { 
+          identityToken: credential.identityToken ? 'present' : 'missing',
+          user: userData
+        });
+        
+        if (!credential.identityToken) {
+          throw new Error('No identity token received from Apple');
+        }
 
-        if (error) {
-          authLogger.error('Supabase OAuth error', { error: error.message });
-          throw error;
+        // Sign in with Supabase using the Apple identity token
+        authLogger.debug('Signing in to Supabase with Apple identity token');
+        const { data: sessionData, error: sessionError } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+        
+        if (sessionError) {
+          authLogger.error('Error signing in with Apple identity token', { error: sessionError.message });
+          throw sessionError;
         }
         
-        if (data?.url) {
-          authLogger.debug('Opening auth session in WebBrowser');
-          const result = await WebBrowser.openAuthSessionAsync(
-            data.url,
-            redirectUrl
-          ) as WebBrowserAuthSessionResult;
-          
-          authLogger.debug('WebBrowser auth session result', { 
-            type: result.type,
-            hasUrl: !!result.url
-          });
-          
-          if (result.type === 'success' && result.url) {
-            authLogger.debug('WebBrowser success with URL', { url: result.url.substring(0, 50) + '...' });
-            
-            // Parse the URL to extract the authorization code
-            const url = new URL(result.url);
-            const code = url.searchParams.get('code');
-            
-            if (code) {
-              authLogger.debug('Found authorization code in URL', { code: code.substring(0, 10) + '...' });
-              
-              // Exchange the code for a session
-              authLogger.debug('Exchanging code for session');
-              const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
-              
-              if (sessionError) {
-                authLogger.error('Error exchanging code for session', { error: sessionError.message });
-                throw sessionError;
-              }
-              
-              authLogger.debug('Session exchange successful', { 
-                hasSession: !!sessionData.session,
-                user: sessionData.session?.user ? {
-                  id: sessionData.session.user.id,
-                  email: sessionData.session.user.email
-                } : null
-              });
-              
-              // Update the state with the new session
-              set((state) => {
-                state.session = sessionData.session;
-                state.user = sessionData.session?.user || null;
-                state.isLoading = false;
-              });
-              
-              return;
-            } else {
-              // Check for a fragment in the URL
-              const fragmentIndex = result.url.indexOf('#');
-              
-              if (fragmentIndex !== -1) {
-                // Get the fragment part (everything after #)
-                const fragment = result.url.substring(fragmentIndex + 1);
-                authLogger.debug('Found fragment in URL', { fragment: fragment.substring(0, 30) + '...' });
-                
-                // Parse the fragment
-                const params: Record<string, string> = {};
-                fragment.split('&').forEach(pair => {
-                  const [key, value] = pair.split('=');
-                  if (key && value) {
-                    params[key] = decodeURIComponent(value);
-                  }
-                });
-                
-                authLogger.debug('Parsed fragment parameters', { 
-                  hasAccessToken: !!params.access_token,
-                  hasRefreshToken: !!params.refresh_token
-                });
-                
-                // If we have tokens in the fragment, set the session manually
-                if (params.access_token && params.refresh_token) {
-                  authLogger.debug('Found tokens in fragment, setting session manually');
-                  
-                  const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-                    access_token: params.access_token,
-                    refresh_token: params.refresh_token
-                  });
-                  
-                  if (sessionError) {
-                    authLogger.error('Error setting session', { error: sessionError.message });
-                    throw sessionError;
-                  }
-                  
-                  authLogger.debug('Session set successfully', { 
-                    hasSession: !!sessionData.session,
-                    user: sessionData.session?.user ? {
-                      id: sessionData.session.user.id,
-                      email: sessionData.session.user.email
-                    } : null
-                  });
-                  
-                  // Update the state with the new session
-                  set((state) => {
-                    state.session = sessionData.session;
-                    state.user = sessionData.session?.user || null;
-                    state.isLoading = false;
-                  });
-                  
-                  return;
-                }
-              }
-            }
-          }
-          
-          // Check for a session after handling the URL
-          const { data: sessionData } = await supabase.auth.getSession();
-          
-          authLogger.debug('Session after WebBrowser', { 
-            hasSession: !!sessionData.session,
-            user: sessionData.session?.user ? {
-              id: sessionData.session.user.id,
-              email: sessionData.session.user.email
-            } : null
-          });
-          
-          // Update the state with the session (if any)
-          set((state) => {
-            state.session = sessionData.session;
-            state.user = sessionData.session?.user || null;
-            state.isLoading = false;
-          });
-        } else {
-          authLogger.debug('No URL returned from Supabase OAuth');
-          set((state) => {
-            state.isLoading = false;
-          });
-        }
+        authLogger.debug('Supabase sign-in with Apple successful', { 
+          hasSession: !!sessionData.session,
+          user: sessionData.session?.user ? {
+            id: sessionData.session.user.id,
+            email: sessionData.session.user.email
+          } : null
+        });
+        
+        // Update the state with the new session
+        set((state) => {
+          state.session = sessionData.session;
+          state.user = sessionData.session?.user || null;
+          state.isLoading = false;
+        });
       } catch (error: any) {
-        authLogger.error('Sign in with Apple error', { error: error.message });
+        // If the user cancels the Apple sign-in, don't treat it as an error
+        if (error.code === 'ERR_CANCELED') {
+          authLogger.debug('User canceled Apple sign-in');
+          set((state) => {
+            state.isLoading = false;
+          });
+          return;
+        }
+        
+        // For device compatibility issues, provide a clearer message
+        if (error.message?.includes('not available')) {
+          authLogger.error('Device compatibility error', { error: error.message });
+          set((state) => {
+            state.error = 'Apple Sign-In is not available on this device';
+            state.isLoading = false;
+          });
+          return;
+        }
+        
+        // Handle all other errors
+        authLogger.error('Sign in with Apple error', { 
+          error: error.message,
+          code: error.code
+        });
+        
         set((state) => {
           state.error = error.message;
           state.isLoading = false;
