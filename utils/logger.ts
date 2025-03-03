@@ -20,6 +20,7 @@ export enum LogCategory {
   SUPABASE = 'SUPABASE',
   UI = 'UI',
   GENERAL = 'GENERAL',
+  OUTFIT = 'OUTFIT',
 }
 
 // Configuration for the logger
@@ -111,4 +112,5 @@ export const authLogger = createLogger(LogCategory.AUTH);
 export const navigationLogger = createLogger(LogCategory.NAVIGATION);
 export const supabaseLogger = createLogger(LogCategory.SUPABASE);
 export const uiLogger = createLogger(LogCategory.UI);
-export const logger = createLogger(LogCategory.GENERAL); 
+export const logger = createLogger(LogCategory.GENERAL);
+export const outfitLogger = createLogger(LogCategory.OUTFIT); 

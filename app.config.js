@@ -24,7 +24,9 @@ module.exports = {
                 "dripmax"
               ]
             }
-          ]
+          ],
+          NSCameraUsageDescription: "Allow Dripmax to access your camera to capture and analyze your outfits.",
+          NSPhotoLibraryUsageDescription: "Allow Dripmax to access your photos to save and share your outfit captures."
         }
       },
       
@@ -37,7 +39,9 @@ module.exports = {
         package: "app.dripmax",
         permissions: [
           "android.permission.CAMERA",
-          "android.permission.RECORD_AUDIO"
+          "android.permission.RECORD_AUDIO",
+          "android.permission.READ_EXTERNAL_STORAGE",
+          "android.permission.WRITE_EXTERNAL_STORAGE"
         ]
       },
       
@@ -61,7 +65,13 @@ module.exports = {
           }
         ],
         "expo-secure-store",
-        "expo-camera",
+        [
+          "expo-camera",
+          {
+            "cameraPermission": "Allow Dripmax to access your camera to capture and analyze your outfits.",
+            "microphonePermission": "Allow Dripmax to access your microphone for video capture."
+          }
+        ],
         "expo-image-picker",
         [
           "expo-apple-authentication"

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useColorScheme } from '../../hooks/useColorScheme';
@@ -54,46 +54,60 @@ export default function ProtectedLayout() {
     );
   }
 
-  navigationLogger.info('Rendering tabs', {
+  navigationLogger.info('Rendering protected layout', {
     isAuthenticated,
     hasUser: !!user
   });
 
   return (
-    <Tabs
+    <Stack
       screenOptions={{
-        tabBarActiveTintColor: isDark ? Colors.dark.tint : Colors.light.tint,
-        tabBarStyle: {
-          backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
-          borderTopColor: isDark ? '#333' : '#e0e0e0',
-        },
         headerStyle: {
           backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
         },
         headerTintColor: isDark ? Colors.dark.text : Colors.light.text,
+        contentStyle: {
+          backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
+        },
       }}
     >
-      <Tabs.Screen
+      <Stack.Screen
         name="index"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="home"
+        options={{ headerShown: true }}
+      />
+      <Stack.Screen
+        name="outfit/[id]"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <Ionicons name="home" size={24} color={color} />,
+          title: 'Ratings',
+          headerTitle: 'Ratings',
+          headerBackVisible: false,
+          headerBackTitle: 'Home',
+          presentation: 'card',
+          animation: 'slide_from_right',
         }}
       />
-      <Tabs.Screen
-        name="camera/index"
+      <Stack.Screen
+        name="camera"
         options={{
-          title: 'Camera',
-          tabBarIcon: ({ color }) => <Ionicons name="camera" size={24} color={color} />,
+          title: 'Take Photo',
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
         }}
       />
-      <Tabs.Screen
-        name="profile/index"
+      <Stack.Screen
+        name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
+          headerTitle: 'Profile',
+          headerBackTitle: 'Home',
+          presentation: 'card',
+          animation: 'slide_from_right',
         }}
       />
-    </Tabs>
+    </Stack>
   );
 } 
