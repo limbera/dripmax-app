@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, Alert, Platform, ActionSheetIOS } from 'react-native';
 import { useColorScheme } from '../../../hooks/useColorScheme';
 import { Colors } from '../../../constants/Colors';
@@ -6,12 +6,14 @@ import { useAuth } from '../../../hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { Stack, useRouter } from 'expo-router';
+import { supabase } from '../../../services/supabase';
 
 export default function ProfileScreen() {
   const { user, signOut, isLoading } = useAuth();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   
   const handleGiveFeedback = async () => {
     const url = 'mailto:feedback@dripmax.app';
@@ -48,6 +50,36 @@ export default function ProfileScreen() {
     }
   };
   
+  const handleDeleteAccount = async () => {
+    try {
+      setIsDeletingAccount(true);
+      
+      const { error } = await supabase.functions.invoke('delete-account', {
+        method: 'POST'
+      });
+
+      if (error) throw error;
+
+      // Sign out will clear auth state
+      await signOut();
+      
+      // Navigate to auth screen
+      router.replace('/(auth)');
+      
+      // Show confirmation (optional, as navigation will likely happen before this is seen)
+      Alert.alert('Account Deleted', 'Your account has been successfully deleted');
+      
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+      Alert.alert(
+        'Error',
+        'Failed to delete account. Please try again.'
+      );
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+  
   const handleManageAccount = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -68,10 +100,7 @@ export default function ProfileScreen() {
                 { 
                   text: 'Delete', 
                   style: 'destructive',
-                  onPress: () => {
-                    // Implement delete account functionality
-                    Alert.alert('Account Deleted', 'Your account has been deleted');
-                  }
+                  onPress: handleDeleteAccount
                 }
               ]
             );
@@ -97,10 +126,7 @@ export default function ProfileScreen() {
                   { 
                     text: 'Delete', 
                     style: 'destructive',
-                    onPress: () => {
-                      // Implement delete account functionality
-                      Alert.alert('Account Deleted', 'Your account has been deleted');
-                    }
+                    onPress: handleDeleteAccount
                   }
                 ]
               );
@@ -134,38 +160,6 @@ export default function ProfileScreen() {
         styles.container,
         { backgroundColor: isDark ? Colors.dark.background : Colors.light.background }
       ]}>
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={[
-              styles.statNumber,
-              { color: isDark ? Colors.dark.text : Colors.light.text }
-            ]}>
-              0
-            </Text>
-            <Text style={[
-              styles.statLabel,
-              { color: isDark ? '#aaa' : '#777' }
-            ]}>
-              Outfits
-            </Text>
-          </View>
-          
-          <View style={styles.statItem}>
-            <Text style={[
-              styles.statNumber,
-              { color: isDark ? Colors.dark.text : Colors.light.text }
-            ]}>
-              0
-            </Text>
-            <Text style={[
-              styles.statLabel,
-              { color: isDark ? '#aaa' : '#777' }
-            ]}>
-              Average Rating
-            </Text>
-          </View>
-        </View>
-        
         <View style={styles.buttonsContainer}>
           <TouchableOpacity
             style={[
@@ -237,6 +231,10 @@ export default function ProfileScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+        
+        <Text style={[styles.versionText, { color: isDark ? '#aaa' : '#777' }]}>
+          Version 1.0.0
+        </Text>
       </View>
     </>
   );
@@ -246,22 +244,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: 32,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 14,
   },
   buttonsContainer: {
     marginTop: 16,
@@ -298,5 +280,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
+  },
+  versionText: {
+    textAlign: 'center',
+    fontSize: 12,
+    marginTop: 8,
   },
 }); 

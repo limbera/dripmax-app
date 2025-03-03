@@ -42,6 +42,9 @@ const SectionHeader = ({
   iconName: string,
   color?: string
 }) => {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  
   const getIcon = () => {
     switch (iconType) {
       case 'Ionicons':
@@ -60,16 +63,28 @@ const SectionHeader = ({
   return (
     <View style={styles.sectionHeaderContainer}>
       {getIcon()}
-      <Text style={styles.sectionHeaderText}>{title}</Text>
+      <Text style={[
+        styles.sectionHeaderText,
+        { color: isDark ? '#CCCCCC' : '#444444' }
+      ]}>{title}</Text>
     </View>
   );
 };
 
 // Component for tag/chip items
 const TagItem = ({ label }: { label: string }) => {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  
   return (
-    <View style={styles.tagItem}>
-      <Text style={styles.tagItemText}>{label}</Text>
+    <View style={[
+      styles.tagItem,
+      { backgroundColor: isDark ? '#333' : '#E0E0E0' }
+    ]}>
+      <Text style={[
+        styles.tagItemText,
+        { color: isDark ? '#FFFFFF' : '#333333' }
+      ]}>{label}</Text>
     </View>
   );
 };
@@ -90,14 +105,6 @@ const RatingProgressBar = ({ rating }: { rating: number }) => {
   
   return (
     <View style={styles.ratingContainer}>
-      <View style={styles.ratingLabels}>
-        <Text style={styles.ratingLabel}>0</Text>
-        <Text style={styles.ratingLabel}>2</Text>
-        <Text style={styles.ratingLabel}>4</Text>
-        <Text style={styles.ratingLabel}>6</Text>
-        <Text style={styles.ratingLabel}>8</Text>
-        <Text style={styles.ratingLabel}>10</Text>
-      </View>
       <View style={styles.ratingBarContainer}>
         <View style={styles.ratingBackground} />
         <View 
@@ -112,6 +119,14 @@ const RatingProgressBar = ({ rating }: { rating: number }) => {
         <View style={[styles.ratingCircle, { left: `${percentage}%`, backgroundColor: getColor() }]}>
           <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
         </View>
+      </View>
+      <View style={styles.ratingLabels}>
+        <Text style={styles.ratingLabel}>0</Text>
+        <Text style={styles.ratingLabel}>2</Text>
+        <Text style={styles.ratingLabel}>4</Text>
+        <Text style={styles.ratingLabel}>6</Text>
+        <Text style={styles.ratingLabel}>8</Text>
+        <Text style={styles.ratingLabel}>10</Text>
       </View>
     </View>
   );
@@ -365,11 +380,14 @@ export default function OutfitDetailScreen() {
         <RatingProgressBar rating={feedback.score || 7.8} />
         
         {/* Drip Analysis */}
-        <View style={styles.section}>
+        <View style={[
+          styles.section,
+          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
+        ]}>
           <SectionHeader 
             title="DRIP ANALYSIS" 
-            iconType="MaterialCommunityIcons" 
-            iconName="target" 
+            iconType="Ionicons" 
+            iconName="water-outline" 
           />
           <Text style={[
             styles.sectionText,
@@ -380,11 +398,14 @@ export default function OutfitDetailScreen() {
         </View>
         
         {/* Perfect For */}
-        <View style={styles.section}>
+        <View style={[
+          styles.section,
+          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
+        ]}>
           <SectionHeader 
             title="PERFECT FOR" 
-            iconType="FontAwesome5" 
-            iconName="gifts" 
+            iconType="Ionicons" 
+            iconName="today-outline" 
           />
           <View style={styles.tagsContainer}>
             {(feedback.event_suitability || mockPerfectFor).map((event: string, index: number) => (
@@ -394,11 +415,14 @@ export default function OutfitDetailScreen() {
         </View>
         
         {/* Fit Analysis */}
-        <View style={styles.section}>
+        <View style={[
+          styles.section,
+          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
+        ]}>
           <SectionHeader 
             title="FIT ANALYSIS" 
-            iconType="MaterialCommunityIcons" 
-            iconName="ruler" 
+            iconType="Ionicons" 
+            iconName="build-outline" 
           />
           <Text style={[
             styles.sectionText,
@@ -409,11 +433,14 @@ export default function OutfitDetailScreen() {
         </View>
         
         {/* Color Analysis */}
-        <View style={styles.section}>
+        <View style={[
+          styles.section,
+          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
+        ]}>
           <SectionHeader 
             title="COLOR ANALYSIS" 
             iconType="Ionicons" 
-            iconName="color-palette-outline" 
+            iconName="brush-outline" 
           />
           <Text style={[
             styles.sectionText,
@@ -424,11 +451,14 @@ export default function OutfitDetailScreen() {
         </View>
         
         {/* Suggested Items */}
-        <View style={styles.section}>
+        <View style={[
+          styles.section,
+          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
+        ]}>
           <SectionHeader 
             title="SUGGESTED ITEMS" 
             iconType="Ionicons" 
-            iconName="bag-handle-outline" 
+            iconName="bag-add-outline" 
           />
           <View style={styles.tagsContainer}>
             {(feedback.item_suggestions || mockSuggestedItems).map((item: string, index: number) => (
@@ -438,11 +468,14 @@ export default function OutfitDetailScreen() {
         </View>
         
         {/* Styling Tips */}
-        <View style={styles.section}>
+        <View style={[
+          styles.section,
+          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
+        ]}>
           <SectionHeader 
             title="STYLING TIPS" 
             iconType="Ionicons" 
-            iconName="bulb-outline" 
+            iconName="rocket-outline" 
           />
           <Text style={[
             styles.sectionText,
@@ -507,7 +540,7 @@ const styles = StyleSheet.create({
   ratingLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginTop: 8,
     paddingHorizontal: 4,
   },
   ratingLabel: {
@@ -517,33 +550,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   ratingBarContainer: {
-    height: 30,
+    height: 50,
     width: '100%',
     backgroundColor: 'transparent',
     justifyContent: 'center',
-    marginTop: 4,
     position: 'relative',
   },
   ratingBackground: {
     position: 'absolute',
-    top: 12,
+    top: 10,
     left: 0,
     right: 0,
-    height: 6,
+    height: 24,
     backgroundColor: '#E0E0E0',
-    borderRadius: 3,
+    borderRadius: 12,
   },
   ratingForeground: {
     position: 'absolute',
-    top: 12,
+    top: 10,
     left: 0,
-    height: 6,
-    borderRadius: 3,
+    height: 24,
+    borderRadius: 12,
     transform: [{ translateX: -6 }], // Adjust for circle
   },
   ratingCircle: {
     position: 'absolute',
-    top: 5,
+    top: 8,
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -559,7 +591,6 @@ const styles = StyleSheet.create({
   section: {
     marginHorizontal: 16,
     marginTop: 20,
-    backgroundColor: '#222',
     borderRadius: 12,
     padding: 16,
   },
@@ -574,7 +605,6 @@ const styles = StyleSheet.create({
   sectionHeaderText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#CCCCCC',
     letterSpacing: 0.5,
   },
   sectionText: {
@@ -587,7 +617,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tagItem: {
-    backgroundColor: '#333',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -595,7 +624,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tagItemText: {
-    color: '#FFFFFF',
     fontSize: 14,
   },
   button: {
