@@ -6,7 +6,7 @@ import { useColorScheme } from '../../../hooks/useColorScheme';
 import { Colors } from '../../../constants/Colors';
 import { useOutfitStore } from '../../../stores/outfitStore';
 import { outfitLogger } from '../../../utils/logger';
-import { getTransformedImageUrl } from '../../../services/supabase';
+import { getTransformedImageUrl, supabase } from '../../../services/supabase';
 
 // Score labels based on rating
 const SCORE_LABELS = {
@@ -182,7 +182,7 @@ export default function OutfitDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  const { getOutfitWithFeedback } = useOutfitStore();
+  const { getOutfitWithFeedback, removeOutfit } = useOutfitStore();
   const [outfit, setOutfit] = useState<any>(null);
   
   // Fetch outfit details
@@ -235,9 +235,30 @@ export default function OutfitDetailScreen() {
       outfitLogger.info('Deleting outfit', { outfitId });
       setIsDeleting(true);
       
-      // Implementation for delete will be added later
-      // For now just navigate back
-      outfitLogger.info('Outfit deleted', { outfitId });
+      // Delete feedback first
+      const { error: feedbackError } = await supabase
+        .from('feedback')
+        .delete()
+        .eq('outfitid', outfitId);
+
+      if (feedbackError) {
+        throw feedbackError;
+      }
+
+      // Then delete the outfit
+      const { error: outfitError } = await supabase
+        .from('outfits')
+        .delete()
+        .eq('id', outfitId);
+
+      if (outfitError) {
+        throw outfitError;
+      }
+
+      // Update the outfit store to remove the deleted outfit
+      removeOutfit(outfitId);
+
+      outfitLogger.info('Outfit deleted successfully', { outfitId });
       Alert.alert('Success', 'Outfit deleted successfully');
       router.back();
     } catch (error: any) {

@@ -40,6 +40,7 @@ interface OutfitState {
   getOutfitWithFeedback: (outfitId: string) => Promise<OutfitWithFeedback | null>;
   addOutfit: (photoUrl: string) => Promise<string | null>;
   refreshOutfits: () => Promise<void>;
+  removeOutfit: (outfitId: string) => void;
 }
 
 export const useOutfitStore = create<OutfitState>()(
@@ -267,6 +268,16 @@ export const useOutfitStore = create<OutfitState>()(
           state.isRefreshing = false;
         });
       }
+    },
+
+    removeOutfit: (outfitId: string) => {
+      outfitLogger.info('Removing outfit from state', { outfitId });
+      
+      set(state => {
+        state.outfits = state.outfits.filter(outfit => outfit.id !== outfitId);
+      });
+      
+      outfitLogger.debug('Outfit removed from state', { outfitId });
     }
   }))
 ); 
