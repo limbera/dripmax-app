@@ -15,14 +15,11 @@ import { Colors } from '../../constants/Colors';
 import { getTimeAgo } from '../../utils/timeFormatter';
 import { useOutfitStore, OutfitWithFeedback } from '../../stores/outfitStore';
 import { Ionicons } from '@expo/vector-icons';
+import { getTransformedImageUrl } from '../../services/supabase';
 
 // Function to determine progress bar color based on rating
 const getRatingColor = (rating: number) => {
-  if (rating <= 2) return '#FF4D4D'; // Red for very low scores
-  if (rating <= 4) return '#FF8C42'; // Orange for low scores
-  if (rating <= 6) return '#FFCA3A'; // Yellow for medium scores
-  if (rating <= 8) return '#8AC926'; // Green for good scores
-  return '#1982C4'; // Teal/Blue for excellent scores
+  return '#00FF77'; // Changed to always return the requested color
 };
 
 export default function HomeScreen() {
@@ -64,7 +61,6 @@ export default function HomeScreen() {
     <TouchableOpacity 
       style={[
         styles.outfitItem,
-        { backgroundColor: isDark ? '#333' : '#f5f5f5' }
       ]}
       onPress={() => navigateToOutfitDetail(item.id)}
       activeOpacity={0.7}
@@ -73,7 +69,7 @@ export default function HomeScreen() {
       <View style={styles.outfitItemContent}>
         {/* Outfit thumbnail image */}
         <Image 
-          source={{ uri: item.photourl }} 
+          source={{ uri: getTransformedImageUrl(item.photourl, 70, 94) }} 
           style={styles.outfitImage} 
         />
         
@@ -82,12 +78,12 @@ export default function HomeScreen() {
           {/* Rating score and timestamp in the same row */}
           <View style={styles.scoreRow}>
             {/* Rating score */}
-            <Text style={[styles.outfitRating, { color: isDark ? Colors.dark.tint : Colors.light.tint }]}>
-              {item.feedback?.score || 'N/A'}/10
+            <Text style={[styles.outfitRating, { color: 'white', fontFamily: 'RobotoMono-Regular' }]}>
+              {item.feedback?.score || 'N/A'}
             </Text>
             
             {/* Timestamp formatted as relative time */}
-            <Text style={[styles.outfitDate, { color: isDark ? '#aaa' : '#777' }]}>
+            <Text style={[styles.outfitDate, { color: 'white', fontFamily: 'RobotoMono-Regular' }]}>
               {getTimeAgo(item.timestamp)}
             </Text>
           </View>
@@ -120,12 +116,12 @@ export default function HomeScreen() {
       <View style={[
         styles.container, 
         styles.centerContent,
-        { backgroundColor: isDark ? Colors.dark.background : Colors.light.background }
+        { backgroundColor: 'black' }
       ]}>
         <ActivityIndicator size="large" color={isDark ? Colors.dark.tint : Colors.light.tint} />
         <Text style={[
           styles.loadingText,
-          { color: isDark ? Colors.dark.text : Colors.light.text }
+          { color: 'white', fontFamily: 'RobotoMono-Regular' }
         ]}>
           Loading outfits...
         </Text>
@@ -138,11 +134,11 @@ export default function HomeScreen() {
       <View style={[
         styles.container, 
         styles.centerContent,
-        { backgroundColor: isDark ? Colors.dark.background : Colors.light.background }
+        { backgroundColor: 'black' }
       ]}>
         <Text style={[
           styles.errorText,
-          { color: isDark ? '#ff6b6b' : '#d63031' }
+          { color: 'white', fontFamily: 'RobotoMono-Regular' }
         ]}>
           {error}
         </Text>
@@ -155,7 +151,7 @@ export default function HomeScreen() {
       <FlatList
         style={[
           styles.container,
-          { backgroundColor: isDark ? Colors.dark.background : Colors.light.background }
+          { backgroundColor: 'black' }
         ]}
         contentContainerStyle={styles.listContent}
         data={outfits}
@@ -165,37 +161,64 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
-            colors={[isDark ? Colors.dark.tint : Colors.light.tint]}
-            tintColor={isDark ? Colors.dark.tint : Colors.light.tint}
+            colors={['#00FF77']}
+            tintColor={'#00FF77'}
           />
         }
         ListEmptyComponent={
-          <Text style={[
-            styles.emptyText,
-            { color: isDark ? Colors.dark.text : Colors.light.text }
-          ]}>
-            No outfits yet. Take a photo to get started!
-          </Text>
+          <View style={styles.emptyStateContainer}>
+            <Text style={styles.emptyTitle}>
+              No drips yet
+            </Text>
+            <Text style={styles.emptyText}>
+              Take photos of your outfits to get ratings and feedback
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyStateButton}
+              onPress={navigateToCamera}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.emptyStateButtonText}>TAKE A PHOTO</Text>
+              <View style={styles.emptyStateIconContainer}>
+                <Ionicons name="chevron-forward-outline" size={24} color="black" />
+              </View>
+            </TouchableOpacity>
+          </View>
         }
       />
     );
   }
 
   return (
-    <View style={styles.mainContainer}>
+    <View style={[styles.mainContainer, { backgroundColor: 'black' }]}>
       <Stack.Screen
         options={{
           title: "My Drips",
           headerLargeTitle: false,
+          headerStyle: {
+            backgroundColor: 'black',
+          },
+          headerTintColor: 'white',
+          headerTitle: () => (
+            <Text style={{
+              fontFamily: 'RobotoMono',
+              fontWeight: 'bold',
+              fontStyle: 'italic',
+              color: '#00FF77',
+              fontSize: 24,
+            }}>
+              dripmax
+            </Text>
+          ),
           headerRight: () => (
             <TouchableOpacity 
               onPress={() => router.push('/(protected)/profile')}
               style={{ marginRight: 8 }}
             >
               <Ionicons 
-                name="person-circle-outline" 
+                name="happy" 
                 size={28} 
-                color={isDark ? Colors.dark.tint : Colors.light.tint} 
+                color="white" 
               />
             </TouchableOpacity>
           ),
@@ -204,17 +227,19 @@ export default function HomeScreen() {
       
       {content}
 
-      {/* Floating Action Button for Camera */}
-      <TouchableOpacity
-        style={[
-          styles.fab,
-          { backgroundColor: isDark ? Colors.dark.tint : Colors.light.tint }
-        ]}
-        onPress={navigateToCamera}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="camera" size={28} color="#FFF" />
-      </TouchableOpacity>
+      {/* Floating Action Button for Camera - Only show when there are outfits */}
+      {outfits.length > 0 && (
+        <TouchableOpacity
+          style={[
+            styles.fab,
+            { backgroundColor: '#00FF77' }
+          ]}
+          onPress={navigateToCamera}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="camera" size={28} color="#000" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -223,9 +248,11 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     position: 'relative',
+    backgroundColor: 'black',
   },
   container: {
     flex: 1,
+    backgroundColor: 'black',
   },
   centerContent: {
     justifyContent: 'center',
@@ -258,51 +285,103 @@ const styles = StyleSheet.create({
   },
   outfitImage: {
     width: 70,
-    height: 70,
+    height: 93.3, // Changed to maintain 3:4 aspect ratio (70 width ÷ 3 × 4 = 93.3)
     borderRadius: 12,
     marginRight: 16,
   },
   outfitDetails: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   scoreRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 18,
   },
   outfitDate: {
-    fontSize: 14,
+    fontSize: 16,
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
   },
   outfitRating: {
-    fontSize: 18,
+    fontSize: 32,
     fontWeight: '600',
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
   },
   progressBarContainer: {
-    height: 8,
+    height: 16,
     width: '100%',
-    backgroundColor: '#333333',
-    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
     overflow: 'hidden',
-    marginTop: 4,
+    marginTop: 0,
   },
   progressBar: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 8,
+    backgroundColor: '#00FF77',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
   },
   errorText: {
     fontSize: 16,
+    textAlign: 'center',
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 60,
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 16,
+    marginBottom: 8,
+    fontFamily: 'RobotoMono-Regular',
     textAlign: 'center',
   },
   emptyText: {
     textAlign: 'center',
     fontSize: 16,
-    paddingTop: 32,
+    marginBottom: 32,
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
+    opacity: 0.8,
+  },
+  emptyStateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00FF77',
+    paddingVertical: 20,
+    paddingHorizontal: 30,
+    borderRadius: 30,
+    marginTop: 24,
+    width: '100%',
+    position: 'relative',
+  },
+  emptyStateButtonText: {
+    color: 'black',
+    fontSize: 20,
+    fontWeight: 'bold',
+    fontFamily: 'RobotoMono-Regular',
+    textAlign: 'center',
+  },
+  emptyStateIconContainer: {
+    position: 'absolute',
+    right: 20,
   },
   fab: {
     position: 'absolute',

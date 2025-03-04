@@ -10,7 +10,8 @@ import {
   StatusBar,
   Dimensions,
   Platform,
-  Animated
+  Animated,
+  SafeAreaView
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter, Stack } from 'expo-router';
@@ -50,6 +51,20 @@ export default function CameraScreen() {
   const router = useRouter();
   const { addOutfit, getOutfitWithFeedback } = useOutfitStore();
   const progressAnimation = useRef(new Animated.Value(0)).current;
+
+  // Automatically request permission when component mounts
+  useEffect(() => {
+    if (permission && !permission.granted) {
+      requestPermission();
+    }
+  }, [permission]);
+
+  // Handle navigation when permission is denied
+  useEffect(() => {
+    if (permission && !permission.granted) {
+      router.back();
+    }
+  }, [permission, router]);
 
   const toggleCameraFacing = () => {
     setCameraFacing(current => current === 'back' ? 'front' : 'back');
@@ -365,7 +380,7 @@ export default function CameraScreen() {
 
   const goBackToHome = () => {
     // Navigate back to home page
-    router.replace('/(protected)/home');
+    router.back();
     cameraLogger.info('Navigating back to home screen');
   };
 
@@ -380,24 +395,12 @@ export default function CameraScreen() {
     );
   }
 
-  // Permission denied
+  // Permission denied - render a blank screen while the navigation effect takes place
   if (!permission.granted) {
     return (
       <View style={[styles.container, styles.centered]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Text style={styles.text}>Camera access denied</Text>
-        <TouchableOpacity 
-          style={styles.button} 
-          onPress={requestPermission}
-        >
-          <Text style={styles.buttonText}>Allow Camera Access</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.button, styles.secondaryButton]} 
-          onPress={() => router.back()}
-        >
-          <Text style={styles.buttonText}>Go Back</Text>
-        </TouchableOpacity>
+        <ActivityIndicator size="large" color="#fff" />
       </View>
     );
   }
@@ -509,7 +512,7 @@ export default function CameraScreen() {
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
-                stroke="#c56cf0"
+                stroke="#00FF77"
                 strokeWidth={strokeWidth}
                 fill="transparent"
                 strokeDasharray={circumference}
@@ -536,6 +539,7 @@ export default function CameraScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar hidden />
       
+      {/* Original preview container */}
       <View style={styles.previewContainer}>
         {capturedImage ? (
           <Image 
@@ -556,22 +560,39 @@ export default function CameraScreen() {
         )}
       </View>
       
-      {/* Overlay controls */}
-      <View style={styles.overlayControls}>
-        <TouchableOpacity 
-          style={styles.iconButton} 
-          onPress={goBackToHome}
-        >
-          <Ionicons name="arrow-back" size={28} color="white" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.analyzeButton}
-          onPress={analyzeDrip}
-        >
-          <Text style={styles.analyzeText}>ANALYZE DRIP</Text>
-        </TouchableOpacity>
+      {/* Transparent top panel for buttons positioned to match camera view */}
+      <View 
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          paddingTop: Platform.OS === 'ios' ? 50 : 20,
+        }}
+        pointerEvents="box-none"
+      >
+        <View style={[styles.topControls, { backgroundColor: 'transparent' }]}>
+          {/* Empty space with same dimensions as flash button */}
+          <View style={{ width: 45, opacity: 0 }} />
+          
+          <TouchableOpacity 
+            style={styles.circleButton} 
+            onPress={resetCamera}
+          >
+            <Ionicons name="close" size={28} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
+      
+      <TouchableOpacity 
+        style={styles.analyzeButton}
+        onPress={analyzeDrip}
+      >
+        <Text style={styles.analyzeText}>NEXT</Text>
+        <View style={styles.iconContainer}>
+          <Ionicons name="chevron-forward-outline" size={24} color="black" />
+        </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -682,7 +703,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'transparent',
-    padding: 20,
+    padding: 0,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
   },
   iconButton: {
     width: 50,
@@ -695,20 +717,25 @@ const styles = StyleSheet.create({
   },
   analyzeButton: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 100,
     left: 20,
     right: 20,
-    backgroundColor: '#22C55E',
+    backgroundColor: '#00FF77',
     padding: 20,
     borderRadius: 30,
     alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 100,
   },
   analyzeText: {
-    color: 'white',
+    color: 'black',
     fontWeight: 'bold',
-    fontSize: 16,
-    letterSpacing: 1,
+    fontSize: 20,
+    textAlign: 'center',
+  },
+  iconContainer: {
+    position: 'absolute',
+    right: 20,
   },
   centerContent: {
     alignItems: 'center',

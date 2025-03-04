@@ -142,14 +142,29 @@ export default function ProfileScreen() {
       <Stack.Screen 
         options={{
           title: 'Profile',
+          headerStyle: {
+            backgroundColor: 'black',
+          },
+          headerTintColor: 'white',
+          headerTitle: () => (
+            <Text style={{
+              fontFamily: 'RobotoMono',
+              fontWeight: 'bold',
+              fontStyle: 'italic',
+              color: '#00FF77',
+              fontSize: 24,
+            }}>
+              dripmax
+            </Text>
+          ),
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Ionicons 
                 name="chevron-back" 
                 size={24} 
-                color={isDark ? Colors.dark.text : Colors.light.text} 
+                color="white" 
               />
-              <Text style={{ color: isDark ? Colors.dark.text : Colors.light.text }}>
+              <Text style={{ color: 'white', fontFamily: 'RobotoMono-Regular' }}>
                 Home
               </Text>
             </TouchableOpacity>
@@ -158,53 +173,41 @@ export default function ProfileScreen() {
       />
       <View style={[
         styles.container,
-        { backgroundColor: isDark ? Colors.dark.background : Colors.light.background }
+        { backgroundColor: 'black' }
       ]}>
         <View style={styles.buttonsContainer}>
           <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: isDark ? '#333' : '#f5f5f5' }
-            ]}
+            style={styles.button}
             onPress={handleGiveFeedback}
           >
-            <Ionicons name="mail-outline" size={20} color={isDark ? Colors.dark.tint : Colors.light.tint} />
-            <Text style={[
-              styles.buttonText,
-              { color: isDark ? Colors.dark.tint : Colors.light.tint }
-            ]}>
+            <View style={styles.buttonIconContainer}>
+              <Ionicons name="ear-outline" size={24} color="white" />
+            </View>
+            <Text style={styles.buttonText}>
               Give Feedback
             </Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: isDark ? '#333' : '#f5f5f5' }
-            ]}
+            style={styles.button}
             onPress={handleGetHelp}
           >
-            <Ionicons name="help-circle-outline" size={20} color={isDark ? Colors.dark.tint : Colors.light.tint} />
-            <Text style={[
-              styles.buttonText,
-              { color: isDark ? Colors.dark.tint : Colors.light.tint }
-            ]}>
+            <View style={styles.buttonIconContainer}>
+              <Ionicons name="help-circle-outline" size={24} color="white" />
+            </View>
+            <Text style={styles.buttonText}>
               Get Help
             </Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: isDark ? '#333' : '#f5f5f5' }
-            ]}
+            style={styles.button}
             onPress={handleManageAccount}
           >
-            <Ionicons name="settings-outline" size={20} color={isDark ? Colors.dark.tint : Colors.light.tint} />
-            <Text style={[
-              styles.buttonText,
-              { color: isDark ? Colors.dark.tint : Colors.light.tint }
-            ]}>
+            <View style={styles.buttonIconContainer}>
+              <Ionicons name="construct-outline" size={24} color="white" />
+            </View>
+            <Text style={styles.buttonText}>
               Manage Account
             </Text>
           </TouchableOpacity>
@@ -212,27 +215,21 @@ export default function ProfileScreen() {
         
         <View style={styles.footerContainer}>
           <TouchableOpacity onPress={handleTerms}>
-            <Text style={[
-              styles.footerText,
-              { color: isDark ? Colors.dark.tint : Colors.light.tint }
-            ]}>
+            <Text style={styles.footerText}>
               Terms
             </Text>
           </TouchableOpacity>
           
-          <Text style={[styles.footerDivider, { color: isDark ? '#aaa' : '#777' }]}>•</Text>
+          <Text style={styles.footerDivider}>•</Text>
           
           <TouchableOpacity onPress={handlePrivacy}>
-            <Text style={[
-              styles.footerText,
-              { color: isDark ? Colors.dark.tint : Colors.light.tint }
-            ]}>
+            <Text style={styles.footerText}>
               Privacy
             </Text>
           </TouchableOpacity>
         </View>
         
-        <Text style={[styles.versionText, { color: isDark ? '#aaa' : '#777' }]}>
+        <Text style={styles.versionText}>
           Version 1.0.0
         </Text>
       </View>
@@ -244,6 +241,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+    backgroundColor: 'black',
   },
   buttonsContainer: {
     marginTop: 16,
@@ -251,15 +249,26 @@ const styles = StyleSheet.create({
   button: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
+    padding: 20.8, // 30% taller than the original 16
+    borderRadius: 100,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#00FF77',
+    backgroundColor: 'black',
+    width: '100%',
+  },
+  buttonIconContainer: {
+    width: 40,
+    alignItems: 'flex-start',
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+    textAlign: 'center',
+    flex: 1,
+    marginRight: 40, // To balance the icon width and keep text centered
   },
   footerContainer: {
     flexDirection: 'row',
@@ -271,10 +280,13 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     fontWeight: '500',
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
   },
   footerDivider: {
     marginHorizontal: 8,
     fontSize: 14,
+    color: 'white',
   },
   backButton: {
     flexDirection: 'row',
@@ -285,5 +297,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
     marginTop: 8,
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
   },
 }); 

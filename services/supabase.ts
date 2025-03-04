@@ -95,4 +95,45 @@ export const setupAuthStateListener = (callback: (session: any) => void) => {
     supabaseLogger.info('Cleaning up auth state listener');
     subscription.unsubscribe();
   };
+};
+
+/**
+ * Transform an image URL using Supabase Storage Image Transformations
+ * @param url The original image URL from Supabase Storage
+ * @param width The desired width
+ * @param height The desired height
+ * @param quality Optional quality parameter (1-100)
+ * @returns The transformed image URL
+ */
+export const getTransformedImageUrl = (
+  url: string, 
+  width: number, 
+  height: number,
+  quality: number = 80
+): string => {
+  if (!url) return '';
+  
+  // Check if it's a Supabase storage URL
+  if (!url.includes('supabase.co/storage/v1/object/public/')) {
+    return url; // Return original if not a Supabase URL
+  }
+  
+  // Extract bucket and path from the URL
+  // Format: https://{PROJECT_REF}.supabase.co/storage/v1/object/public/{BUCKET}/{PATH}
+  const urlParts = url.split('/public/');
+  if (urlParts.length !== 2) return url; // Return original if URL format is unexpected
+  
+  const bucket = urlParts[1].split('/')[0];
+  const path = urlParts[1].substring(bucket.length + 1);
+  
+  // Get transformed URL
+  return supabase.storage
+    .from(bucket)
+    .getPublicUrl(path, {
+      transform: {
+        width,
+        height,
+        quality,
+      },
+    }).data.publicUrl;
 }; 

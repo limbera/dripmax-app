@@ -22,6 +22,14 @@ export default function AuthLayout() {
           backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
         },
       }}
-    />
+    >
+      {/* Hide header for paywall screen */}
+      <Stack.Screen
+        name="paywall"
+        options={{
+          headerShown: false,
+        }}
+      />
+    </Stack>
   );
 } 

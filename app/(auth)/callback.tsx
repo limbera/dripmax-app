@@ -55,12 +55,12 @@ export default function AuthCallback() {
   return (
     <View style={[
       styles.container,
-      { backgroundColor: isDark ? Colors.dark.background : Colors.light.background }
+      { backgroundColor: 'black' }
     ]}>
-      <ActivityIndicator size="large" color={isDark ? Colors.dark.tint : Colors.light.tint} />
+      <ActivityIndicator size="large" color="#00FF77" />
       <Text style={[
         styles.text,
-        { color: isDark ? Colors.dark.text : Colors.light.text }
+        { color: 'white', fontFamily: 'RobotoMono-Regular' }
       ]}>
         Completing sign in...
       </Text>

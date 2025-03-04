@@ -45,9 +45,9 @@ export default function ProtectedLayout() {
       isAuthenticated
     });
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDark ? Colors.dark.background : Colors.light.background }}>
-        <ActivityIndicator size="large" color={isDark ? Colors.dark.tint : Colors.light.tint} />
-        <Text style={{ marginTop: 20, color: isDark ? Colors.dark.text : Colors.light.text }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'black' }}>
+        <ActivityIndicator size="large" color="#00FF77" />
+        <Text style={{ marginTop: 20, color: 'white', fontFamily: 'RobotoMono-Regular' }}>
           {isLoading ? 'Loading...' : 'Initializing...'}
         </Text>
       </View>
@@ -63,9 +63,9 @@ export default function ProtectedLayout() {
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
+          backgroundColor: 'black',
         },
-        headerTintColor: isDark ? Colors.dark.text : Colors.light.text,
+        headerTintColor: 'white',
         contentStyle: {
           backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
         },
@@ -83,7 +83,17 @@ export default function ProtectedLayout() {
         name="outfit/[id]"
         options={{
           title: 'Ratings',
-          headerTitle: 'Ratings',
+          headerTitle: () => (
+            <Text style={{
+              color: 'white',
+              fontFamily: 'RobotoMono',
+              fontWeight: 'bold',
+              fontStyle: 'italic',
+              fontSize: 18,
+            }}>
+              Ratings
+            </Text>
+          ),
           headerBackVisible: false,
           headerBackTitle: 'Home',
           presentation: 'card',

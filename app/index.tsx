@@ -66,9 +66,9 @@ export default function Index() {
   }, [isAuthenticated, initialized, hasActiveSubscription, router]);
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#0000ff" />
-      <Text style={styles.text}>Loading...</Text>
+    <View style={[styles.container, { backgroundColor: 'black' }]}>
+      <ActivityIndicator size="large" color="#00FF77" />
+      <Text style={[styles.text, { color: 'white', fontFamily: 'RobotoMono-Regular' }]}>Loading...</Text>
     </View>
   );
 }

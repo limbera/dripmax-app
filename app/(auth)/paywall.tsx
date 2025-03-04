@@ -89,7 +89,7 @@ export default function PaywallScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#00FF77" />
         <Text style={styles.loadingText}>Loading subscription options...</Text>
       </SafeAreaView>
     );
@@ -116,11 +116,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'black',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#333',
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
   },
 }); 

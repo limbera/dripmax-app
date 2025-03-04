@@ -6,6 +6,7 @@ import { useColorScheme } from '../../../hooks/useColorScheme';
 import { Colors } from '../../../constants/Colors';
 import { useOutfitStore } from '../../../stores/outfitStore';
 import { outfitLogger } from '../../../utils/logger';
+import { getTransformedImageUrl } from '../../../services/supabase';
 
 // Score labels based on rating
 const SCORE_LABELS = {
@@ -65,7 +66,7 @@ const SectionHeader = ({
       {getIcon()}
       <Text style={[
         styles.sectionHeaderText,
-        { color: isDark ? '#CCCCCC' : '#444444' }
+        { color: 'white', fontFamily: 'RobotoMono-Regular' }
       ]}>{title}</Text>
     </View>
   );
@@ -73,17 +74,14 @@ const SectionHeader = ({
 
 // Component for tag/chip items
 const TagItem = ({ label }: { label: string }) => {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  
   return (
     <View style={[
       styles.tagItem,
-      { backgroundColor: isDark ? '#333' : '#E0E0E0' }
+      { backgroundColor: '#333' }
     ]}>
       <Text style={[
         styles.tagItemText,
-        { color: isDark ? '#FFFFFF' : '#333333' }
+        { color: 'white', fontFamily: 'RobotoMono-Regular' }
       ]}>{label}</Text>
     </View>
   );
@@ -96,17 +94,20 @@ const RatingProgressBar = ({ rating }: { rating: number }) => {
   
   // Get color based on rating
   const getColor = () => {
-    if (rating < 3) return '#FF4D4D'; // Red
-    if (rating < 5) return '#FFA500'; // Orange
-    if (rating < 7) return '#FFCA3A'; // Yellow
-    if (rating < 9) return '#8AC926'; // Green
-    return '#01AF71'; // Teal-Green
+    return '#00FF77'; // Always return this color
   };
   
   return (
     <View style={styles.ratingContainer}>
       <View style={styles.ratingBarContainer}>
         <View style={styles.ratingBackground} />
+        
+        {/* Divider lines */}
+        <View style={[styles.dividerLine, { left: '20%' }]} />
+        <View style={[styles.dividerLine, { left: '40%' }]} />
+        <View style={[styles.dividerLine, { left: '60%' }]} />
+        <View style={[styles.dividerLine, { left: '80%' }]} />
+        
         <View 
           style={[
             styles.ratingForeground, 
@@ -119,14 +120,6 @@ const RatingProgressBar = ({ rating }: { rating: number }) => {
         <View style={[styles.ratingCircle, { left: `${percentage}%`, backgroundColor: getColor() }]}>
           <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
         </View>
-      </View>
-      <View style={styles.ratingLabels}>
-        <Text style={styles.ratingLabel}>0</Text>
-        <Text style={styles.ratingLabel}>2</Text>
-        <Text style={styles.ratingLabel}>4</Text>
-        <Text style={styles.ratingLabel}>6</Text>
-        <Text style={styles.ratingLabel}>8</Text>
-        <Text style={styles.ratingLabel}>10</Text>
       </View>
     </View>
   );
@@ -145,16 +138,30 @@ export default function OutfitDetailScreen() {
     // Set header options immediately to prevent flicker
     navigation.setOptions({
       headerBackVisible: false,
-      title: 'Ratings',
-      headerTitle: 'Ratings',
+      title: 'dripmax',
+      headerTitle: () => (
+        <Text style={{
+          fontFamily: 'RobotoMono',
+          fontWeight: 'bold',
+          fontStyle: 'italic',
+          color: '#00FF77',
+          fontSize: 24,
+        }}>
+          dripmax
+        </Text>
+      ),
+      headerStyle: {
+        backgroundColor: 'black',
+      },
+      headerTintColor: 'white',
       headerLeft: () => (
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons 
             name="chevron-back" 
             size={24} 
-            color={isDark ? Colors.dark.text : Colors.light.text} 
+            color="white" 
           />
-          <Text style={{ color: isDark ? Colors.dark.text : Colors.light.text }}>
+          <Text style={{ color: 'white', fontFamily: 'RobotoMono-Regular' }}>
             Home
           </Text>
         </TouchableOpacity>
@@ -164,7 +171,7 @@ export default function OutfitDetailScreen() {
           <Ionicons 
             name="ellipsis-vertical" 
             size={24} 
-            color={isDark ? Colors.dark.text : Colors.light.text} 
+            color="white" 
           />
         </TouchableOpacity>
       )
@@ -268,12 +275,12 @@ export default function OutfitDetailScreen() {
       <View style={[
         styles.container, 
         styles.centerContent,
-        { backgroundColor: isDark ? Colors.dark.background : Colors.light.background }
+        { backgroundColor: 'black' }
       ]}>
         <ActivityIndicator size="large" color={isDark ? Colors.dark.tint : Colors.light.tint} />
         <Text style={[
           styles.loadingText,
-          { color: isDark ? Colors.dark.text : Colors.light.text }
+          { color: 'white', fontFamily: 'RobotoMono-Regular' }
         ]}>
           Loading outfit details...
         </Text>
@@ -287,11 +294,11 @@ export default function OutfitDetailScreen() {
       <View style={[
         styles.container, 
         styles.centerContent,
-        { backgroundColor: isDark ? Colors.dark.background : Colors.light.background }
+        { backgroundColor: 'black' }
       ]}>
         <Text style={[
           styles.errorText,
-          { color: isDark ? '#ff6b6b' : '#d63031' }
+          { color: 'white', fontFamily: 'RobotoMono-Regular' }
         ]}>
           {error}
         </Text>
@@ -299,7 +306,7 @@ export default function OutfitDetailScreen() {
           style={[styles.button, { marginTop: 16 }]} 
           onPress={() => router.back()}
         >
-          <Text style={styles.buttonText}>Go Back</Text>
+          <Text style={[styles.buttonText, { fontFamily: 'RobotoMono-Regular' }]}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -311,11 +318,11 @@ export default function OutfitDetailScreen() {
       <View style={[
         styles.container, 
         styles.centerContent,
-        { backgroundColor: isDark ? Colors.dark.background : Colors.light.background }
+        { backgroundColor: 'black' }
       ]}>
         <Text style={[
           styles.errorText,
-          { color: isDark ? Colors.dark.text : Colors.light.text }
+          { color: 'white', fontFamily: 'RobotoMono-Regular' }
         ]}>
           No feedback available for this outfit.
         </Text>
@@ -323,7 +330,7 @@ export default function OutfitDetailScreen() {
           style={[styles.button, { marginTop: 16 }]} 
           onPress={() => router.back()}
         >
-          <Text style={styles.buttonText}>Go Back</Text>
+          <Text style={[styles.buttonText, { fontFamily: 'RobotoMono-Regular' }]}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -355,35 +362,35 @@ export default function OutfitDetailScreen() {
       <ScrollView
         style={[
           styles.container,
-          { backgroundColor: isDark ? Colors.dark.background : Colors.light.background }
+          { backgroundColor: 'black' }
         ]}
         contentContainerStyle={styles.contentContainer}
       >
         {/* Outfit Image */}
         <View style={styles.imageContainer}>
           <Image 
-            source={{ uri: outfit.photourl }} 
+            source={{ uri: getTransformedImageUrl(outfit.photourl, 400, 600) }} 
             style={styles.outfitImage} 
             resizeMode="cover"
           />
         </View>
         
-        {/* Outfit Title */}
-        <Text style={[
-          styles.outfitTitle,
-          { color: isDark ? Colors.dark.text : Colors.light.text }
-        ]}>
-          {outfitTitle}
-        </Text>
-        
-        {/* Rating */}
-        <RatingProgressBar rating={feedback.score || 7.8} />
+        {/* Wrapper for title and rating to match section alignment */}
+        <View style={[styles.section, { backgroundColor: 'transparent' }]}>
+          {/* Outfit Title */}
+          <Text style={[
+            styles.outfitTitle,
+            { color: 'white', fontFamily: 'RobotoMono-Regular' }
+          ]}>
+            {outfitTitle}
+          </Text>
+          
+          {/* Rating */}
+          <RatingProgressBar rating={feedback.score || 7.8} />
+        </View>
         
         {/* Drip Analysis */}
-        <View style={[
-          styles.section,
-          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
-        ]}>
+        <View style={styles.section}>
           <SectionHeader 
             title="DRIP ANALYSIS" 
             iconType="Ionicons" 
@@ -391,17 +398,14 @@ export default function OutfitDetailScreen() {
           />
           <Text style={[
             styles.sectionText,
-            { color: isDark ? Colors.dark.text : Colors.light.text }
+            { color: 'white', fontFamily: 'RobotoMono-Regular' }
           ]}>
             {feedback.overall_feedback || "This outfit blends casual and bold elements, creating a striking street style look. The combination of layers and textures gives it a unique character."}
           </Text>
         </View>
         
         {/* Perfect For */}
-        <View style={[
-          styles.section,
-          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
-        ]}>
+        <View style={styles.section}>
           <SectionHeader 
             title="PERFECT FOR" 
             iconType="Ionicons" 
@@ -415,10 +419,7 @@ export default function OutfitDetailScreen() {
         </View>
         
         {/* Fit Analysis */}
-        <View style={[
-          styles.section,
-          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
-        ]}>
+        <View style={styles.section}>
           <SectionHeader 
             title="FIT ANALYSIS" 
             iconType="Ionicons" 
@@ -426,17 +427,14 @@ export default function OutfitDetailScreen() {
           />
           <Text style={[
             styles.sectionText,
-            { color: isDark ? Colors.dark.text : Colors.light.text }
+            { color: 'white', fontFamily: 'RobotoMono-Regular' }
           ]}>
             {feedback.fit_analysis || "The jacket fits well, creating a structured silhouette, while the loose pants add a relaxed touch. The shirt underneath introduces an additional layer of interest with its extended length."}
           </Text>
         </View>
         
         {/* Color Analysis */}
-        <View style={[
-          styles.section,
-          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
-        ]}>
+        <View style={styles.section}>
           <SectionHeader 
             title="COLOR ANALYSIS" 
             iconType="Ionicons" 
@@ -444,17 +442,14 @@ export default function OutfitDetailScreen() {
           />
           <Text style={[
             styles.sectionText,
-            { color: isDark ? Colors.dark.text : Colors.light.text }
+            { color: 'white', fontFamily: 'RobotoMono-Regular' }
           ]}>
             {feedback.color_analysis || "The vibrant red jacket is a standout piece against the more subdued gray pants, creating a strong visual contrast. The striped shirt provides a playful yet cohesive element to the overall look."}
           </Text>
         </View>
         
         {/* Suggested Items */}
-        <View style={[
-          styles.section,
-          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
-        ]}>
+        <View style={styles.section}>
           <SectionHeader 
             title="SUGGESTED ITEMS" 
             iconType="Ionicons" 
@@ -468,10 +463,7 @@ export default function OutfitDetailScreen() {
         </View>
         
         {/* Styling Tips */}
-        <View style={[
-          styles.section,
-          { backgroundColor: isDark ? '#222' : '#F5F5F5' }
-        ]}>
+        <View style={styles.section}>
           <SectionHeader 
             title="STYLING TIPS" 
             iconType="Ionicons" 
@@ -479,7 +471,7 @@ export default function OutfitDetailScreen() {
           />
           <Text style={[
             styles.sectionText,
-            { color: isDark ? Colors.dark.text : Colors.light.text }
+            { color: 'white', fontFamily: 'RobotoMono-Regular' }
           ]}>
             {feedback.other_suggestions || "Consider adding a bold lip color to complement the jacket's vibrancy and enhance the overall look."}
           </Text>
@@ -492,6 +484,7 @@ export default function OutfitDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'black',
   },
   centerContent: {
     justifyContent: 'center',
@@ -510,14 +503,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     marginLeft: 4,
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
   },
   headerButton: {
     marginHorizontal: 8,
   },
   imageContainer: {
-    alignSelf: 'stretch',
-    height: 450,
-    marginHorizontal: 16,
+    width: '90%',
+    alignSelf: 'center',
+    aspectRatio: 3/4,
     marginTop: 20,
     borderRadius: 12,
     overflow: 'hidden',
@@ -529,25 +524,15 @@ const styles = StyleSheet.create({
   outfitTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginHorizontal: 16,
-    marginTop: 16,
+    marginHorizontal: 0,
+    marginTop: 0,
     marginBottom: 20,
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
   },
   ratingContainer: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-  },
-  ratingLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    paddingHorizontal: 4,
-  },
-  ratingLabel: {
-    fontSize: 12,
-    color: '#888',
-    width: 20,
-    textAlign: 'center',
+    marginHorizontal: 0,
+    marginBottom: 0,
   },
   ratingBarContainer: {
     height: 50,
@@ -562,8 +547,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 24,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
+  },
+  dividerLine: {
+    position: 'absolute',
+    top: 10,
+    width: 2,
+    height: 24,
+    backgroundColor: 'black',
+    zIndex: 1,
   },
   ratingForeground: {
     position: 'absolute',
@@ -571,28 +564,37 @@ const styles = StyleSheet.create({
     left: 0,
     height: 24,
     borderRadius: 12,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
     transform: [{ translateX: -6 }], // Adjust for circle
+    backgroundColor: '#00FF77',
   },
   ratingCircle: {
     position: 'absolute',
-    top: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    top: 5,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
-    transform: [{ translateX: -14 }], // Half the width
+    transform: [{ translateX: -17 }],
+    backgroundColor: '#00FF77',
+    borderWidth: 2,
+    borderColor: 'black',
+    zIndex: 2,
   },
   ratingValue: {
-    color: '#fff',
-    fontSize: 12,
+    color: 'black',
+    fontSize: 13,
     fontWeight: 'bold',
+    fontFamily: 'RobotoMono-Regular',
   },
   section: {
     marginHorizontal: 16,
     marginTop: 20,
     borderRadius: 12,
     padding: 16,
+    backgroundColor: '#222222',
   },
   sectionHeaderContainer: {
     flexDirection: 'row',
@@ -606,10 +608,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 0.5,
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
   },
   sectionText: {
     fontSize: 15,
     lineHeight: 22,
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -617,14 +623,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tagItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 6,
+    marginBottom: 6,
+    backgroundColor: '#333',
   },
   tagItemText: {
-    fontSize: 14,
+    fontSize: 13,
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
   },
   button: {
     backgroundColor: '#1982C4',
@@ -636,14 +645,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+    fontFamily: 'RobotoMono-Regular',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
   },
   errorText: {
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 16,
+    fontFamily: 'RobotoMono-Regular',
+    color: 'white',
   },
 }); 
