@@ -223,8 +223,22 @@ export default function CameraScreen() {
       const fileName = `outfit-${timestamp}.jpg`;
       cameraLogger.info('Preparing to upload image', { fileName });
       
+      // Compress the image before uploading to reduce size
+      const compressedImage = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1200 } }], // Resize to max width of 1200px
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // 70% quality JPEG
+      );
+      
+      cameraLogger.info('Image compressed successfully', {
+        originalUri: uri.substring(0, 30) + '...',
+        compressedUri: compressedImage.uri.substring(0, 30) + '...',
+        width: compressedImage.width,
+        height: compressedImage.height,
+      });
+      
       // Read image as blob
-      const response = await fetch(uri);
+      const response = await fetch(compressedImage.uri);
       const blob = await response.blob();
       
       // Use FileReader to create base64 data - this approach is more reliable
@@ -264,26 +278,65 @@ export default function CameraScreen() {
         fileSize: binaryData.length
       });
       
-      const { data, error } = await supabase.storage
-        .from('outfits')
-        .upload(fileName, binaryData, {
-          contentType: 'image/jpeg',
-          upsert: true
-        });
+      // Try upload with retry logic
+      let uploadAttempt = 0;
+      const maxUploadAttempts = 3;
+      let uploadResult = null;
       
-      if (error) {
-        cameraLogger.error('Supabase upload error', { error: error.message });
-        throw error;
+      while (uploadAttempt < maxUploadAttempts) {
+        uploadAttempt++;
+        
+        try {
+          const { data, error } = await supabase.storage
+            .from('outfits')
+            .upload(fileName, binaryData, {
+              contentType: 'image/jpeg',
+              upsert: true
+            });
+          
+          if (error) {
+            // Check if error contains HTML (indicating a server error)
+            const errorString = String(error);
+            if (errorString.includes('JSON Parse error') || errorString.includes('<')) {
+              cameraLogger.error(`Supabase upload attempt ${uploadAttempt} failed with HTML response`, { 
+                error: errorString
+              });
+              
+              if (uploadAttempt < maxUploadAttempts) {
+                // Wait before retry (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, uploadAttempt * 1000));
+                continue;
+              }
+            }
+            
+            cameraLogger.error('Supabase upload error', { error: error.message });
+            throw error;
+          }
+          
+          uploadResult = data;
+          break;
+        } catch (e) {
+          cameraLogger.error(`Upload attempt ${uploadAttempt} failed`, { 
+            error: e instanceof Error ? e.message : String(e)
+          });
+          
+          if (uploadAttempt >= maxUploadAttempts) {
+            throw e;
+          }
+          
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, uploadAttempt * 1000));
+        }
       }
       
-      if (!data || !data.path) {
+      if (!uploadResult || !uploadResult.path) {
         throw new Error('Upload succeeded but returned no path');
       }
       
       // Get the public URL
       const { data: { publicUrl } } = supabase.storage
         .from('outfits')
-        .getPublicUrl(data.path);
+        .getPublicUrl(uploadResult.path);
       
       cameraLogger.info('Upload completed successfully', { publicUrl });
       return publicUrl;
