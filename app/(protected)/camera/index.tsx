@@ -11,7 +11,8 @@ import {
   Dimensions,
   Platform,
   Animated,
-  SafeAreaView
+  SafeAreaView,
+  Easing
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter, Stack } from 'expo-router';
@@ -51,6 +52,7 @@ export default function CameraScreen() {
   const router = useRouter();
   const { addOutfit, getOutfitWithFeedback } = useOutfitStore();
   const progressAnimation = useRef(new Animated.Value(0)).current;
+  const scanLinePosition = useRef(new Animated.Value(0)).current;
 
   // Automatically request permission when component mounts
   useEffect(() => {
@@ -395,9 +397,9 @@ export default function CameraScreen() {
   // Update subtext based on progress
   const getAnalysisText = () => {
     if (progress < 10) {
-      return "Preparing your outfit photo...";
+      return "Preparing outfit photo...";
     } else if (progress < 35) {
-      return "Uploading to our AI...";
+      return "Uploading to  AI...";
     } else if (progress < 50) {
       return "Creating outfit record...";
     } else if (progress < 75) {
@@ -436,6 +438,39 @@ export default function CameraScreen() {
     router.back();
     cameraLogger.info('Navigating back to home screen');
   };
+
+  // Add this function to create the scanning line animation
+  const animateScanLine = () => {
+    // Reset to start position if needed
+    scanLinePosition.setValue(0);
+    
+    // Create a sequence of animations (down and then up)
+    Animated.loop(
+      Animated.sequence([
+        // Move down
+        Animated.timing(scanLinePosition, {
+          toValue: 1,
+          duration: 2000, // 2 seconds to scan down
+          useNativeDriver: true,
+          easing: Easing.linear
+        }),
+        // Move up
+        Animated.timing(scanLinePosition, {
+          toValue: 0,
+          duration: 2000, // 2 seconds to scan up
+          useNativeDriver: true,
+          easing: Easing.linear
+        })
+      ])
+    ).start();
+  };
+  
+  // Start the scan animation when analyzing starts
+  useEffect(() => {
+    if (isAnalyzing) {
+      animateScanLine();
+    }
+  }, [isAnalyzing]);
 
   // Loading state while checking permissions
   if (!permission) {
@@ -533,55 +568,51 @@ export default function CameraScreen() {
   
   // ANALYSIS LOADING VIEW
   if (isAnalyzing) {
-    const size = 120;
-    const strokeWidth = 10;
-    const radius = (size - strokeWidth) / 2;
-    const circumference = radius * 2 * Math.PI;
-    
-    const strokeDashoffset = progressAnimation.interpolate({
-      inputRange: [0, 100],
-      outputRange: [circumference, 0],
-    });
-    
     return (
-      <View style={[styles.container, styles.centerContent]}>
+      <View style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
         <StatusBar hidden />
         
-        <View style={styles.analyzeContainer}>
-          <View style={styles.progressContainer}>
-            <Svg width={size} height={size}>
-              {/* Background Circle */}
-              <Circle
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                stroke="#333333"
-                strokeWidth={strokeWidth}
-                fill="transparent"
-              />
-              {/* Progress Circle */}
-              <AnimatedCircle
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                stroke="#00FF77"
-                strokeWidth={strokeWidth}
-                fill="transparent"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                transform={`rotate(-90 ${size / 2} ${size / 2})`}
-              />
-            </Svg>
-            <Text style={styles.progressText}>
-              {Math.round(progress)}%
-            </Text>
-          </View>
+        {/* Keep the image preview visible in the background */}
+        <View style={styles.previewContainer}>
+          {capturedImage ? (
+            <Image 
+              source={{ uri: capturedImage }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <View style={styles.placeholderContainer}>
+              <Text style={styles.placeholderText}>Image not available</Text>
+            </View>
+          )}
           
-          <Text style={styles.analyzeText}>Analyzing your drip...</Text>
-          <Text style={styles.subText}>{getAnalysisText()}</Text>
+          {/* Scanning line */}
+          <Animated.View 
+            style={[
+              styles.scanLine,
+              {
+                transform: [{
+                  translateY: scanLinePosition.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, Dimensions.get('window').height]
+                  })
+                }]
+              }
+            ]}
+          />
         </View>
+        
+        {/* Transformed button with black background and green text during analysis */}
+        <TouchableOpacity 
+          style={[styles.analyzeButton, styles.analyzeButtonAnalyzing]}
+          disabled={true}
+        >
+          <View style={styles.buttonIconContainer}>
+            <ActivityIndicator size="small" color="white" />
+          </View>
+          <Text style={styles.analyzeTextAnalyzing}>{getAnalysisText()}</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -641,10 +672,10 @@ export default function CameraScreen() {
         style={styles.analyzeButton}
         onPress={analyzeDrip}
       >
-        <Text style={styles.analyzeText}>NEXT</Text>
         <View style={styles.iconContainer}>
           <Ionicons name="chevron-forward-outline" size={24} color="black" />
         </View>
+        <Text style={styles.analyzeText}>NEXT</Text>
       </TouchableOpacity>
     </View>
   );
@@ -779,12 +810,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
+    flexDirection: 'row',
+  },
+  analyzeButtonAnalyzing: {
+    backgroundColor: 'black',
+    borderWidth: 1,
+    borderColor: '#00FF77',
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 15,
   },
   analyzeText: {
     color: 'black',
     fontWeight: 'bold',
     fontSize: 20,
     textAlign: 'center',
+    flex: 1,
+  },
+  analyzeTextAnalyzing: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 20,
+    textAlign: 'center',
+    flex: 1,
   },
   iconContainer: {
     position: 'absolute',
@@ -824,5 +872,33 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: '#aaaaaa',
     fontSize: 16,
+  },
+  overlayForProgress: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scanLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 10,
+    backgroundColor: '#00FF77',
+    shadowColor: '#00FF77',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  buttonIconContainer: {
+    marginRight: 12,
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 }); 
