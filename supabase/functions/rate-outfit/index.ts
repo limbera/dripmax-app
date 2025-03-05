@@ -25,6 +25,7 @@ type OutfitFeedback = {
   item_suggestions: string[];
   other_suggestions: string;
   score: number;
+  score_justification: string;
 };
 
 serve(async (req) => {
@@ -73,6 +74,66 @@ serve(async (req) => {
 
 Your analysis should be thorough yet concise, focusing on practical advice while maintaining a supportive tone.
 
+SCORING GUIDELINES:
+When rating outfits, carefully consider these criteria and score ranges:
+
+9.0-10.0: EXCEPTIONAL
+- Perfect proportion and fit for the wearer's body type
+- Sophisticated color harmony and intentional palette
+- Appropriate for multiple contexts or perfectly suited to its intended context
+- Shows thoughtful styling details (accessories, layering, etc.)
+- Demonstrates uniqueness or personal expression while remaining cohesive
+
+7.5-8.9: VERY GOOD
+- Strong overall impression with minor areas for improvement
+- Good fit with perhaps 1-2 elements that could be adjusted
+- Cohesive color scheme with room for refinement
+- Appropriate for intended contexts
+- Good styling elements but might benefit from 1-2 additional touches
+
+6.0-7.4: GOOD
+- Solid outfit with several noticeable areas for improvement
+- Some fit issues that impact the overall silhouette
+- Basic color coordination but lacks intentionality or interest
+- Functional for some contexts but limited versatility
+- Basic styling with minimal attention to details
+
+4.0-5.9: AVERAGE
+- Multiple significant issues affecting the outfit's success
+- Several fit problems that detract from appearance
+- Problematic color combinations or lack of color strategy
+- Limited contextual appropriateness
+- Minimal styling effort evident
+
+2.0-3.9: BELOW AVERAGE
+- Major problems with fundamental outfit construction
+- Significant fit issues throughout
+- Clashing or inappropriate colors
+- Not suitable for most contexts
+- Appears thrown together without consideration
+
+0.0-1.9: POOR
+- Failed at basic outfit assembly
+- Severely improper fit
+- Completely discordant colors
+- Inappropriate for all contexts
+- No evidence of intentional styling
+
+SCORING METHOD:
+1. First evaluate these five components separately (do not include these subscores in your response):
+   - Fit (0-10): How well garments fit and flatter the body
+   - Color (0-10): Color harmony, complementary choices, palette cohesion
+   - Versatility (0-10): Appropriateness for various contexts
+   - Styling (0-10): Thoughtfulness in accessories, layering, and details
+   - Creativity (0-10): Uniqueness, personal expression, and originality
+
+2. Use these subscores to inform your final score calculation
+   - Be deliberate and critical - a truly average outfit should score around 5.0
+   - Do not cluster scores in the 7.0-7.9 range unless truly warranted
+   - Use the full scoring range appropriately
+
+3. Provide explicit justification for your final score
+
 Return your response in valid JSON with the following structure:
 {
   "overall_feedback": "Two sentences describing the overall impression",
@@ -81,7 +142,8 @@ Return your response in valid JSON with the following structure:
   "event_suitability": ["List", "of", "suitable", "events"],
   "item_suggestions": ["Five", "specific", "items", "to", "enhance"],
   "other_suggestions": "One to two sentences on non-clothing adjustments",
-  "score": "A number from 0.0–10.0 with 1 decimal place reflecting your overall rating for the outfit"
+  "score": "A number from 0.0–10.0 with 1 decimal place reflecting your overall rating for the outfit",
+  "score_justification": "A paragraph explaining why this score was given, with reference to specific strengths and weaknesses"
 }`
         },
         {
@@ -164,7 +226,8 @@ Return your response in valid JSON with the following structure:
         event_suitability: validateStringArray(feedback.event_suitability, 'event_suitability'),
         item_suggestions: validateStringArray(feedback.item_suggestions, 'item_suggestions', 5),
         other_suggestions: validateText(feedback.other_suggestions, 'other_suggestions'),
-        score: validateScore(feedback.score)
+        score: validateScore(feedback.score),
+        score_justification: validateText(feedback.score_justification, 'score_justification')
       }
     }
 
@@ -207,7 +270,8 @@ Return your response in valid JSON with the following structure:
         'Retry recommended'
       ],
       other_suggestions: `Unable to complete analysis: ${errorMessage}. Please try again later.`,
-      score: 0
+      score: 0,
+      score_justification: 'Analysis failed due to an unknown error.'
     }
     
     try {
