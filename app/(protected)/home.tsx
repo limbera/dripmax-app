@@ -7,7 +7,8 @@ import {
   Image, 
   RefreshControl, 
   ActivityIndicator, 
-  TouchableOpacity 
+  TouchableOpacity,
+  Alert
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useColorScheme } from '../../hooks/useColorScheme';
@@ -16,6 +17,8 @@ import { getTimeAgo } from '../../utils/timeFormatter';
 import { useOutfitStore, OutfitWithFeedback } from '../../stores/outfitStore';
 import { Ionicons } from '@expo/vector-icons';
 import { getTransformedImageUrl } from '../../services/supabase';
+import { router } from 'expo-router';
+import { useCameraPermissions } from 'expo-camera';
 
 // Function to determine progress bar color based on rating
 const getRatingColor = (rating: number) => {
@@ -37,6 +40,8 @@ export default function HomeScreen() {
     refreshOutfits 
   } = useOutfitStore();
 
+  const [permission, requestPermission] = useCameraPermissions();
+
   // Fetch outfits when component mounts
   useEffect(() => {
     fetchOutfits();
@@ -52,9 +57,26 @@ export default function HomeScreen() {
     router.push(`/outfit/${outfitId}`);
   };
 
-  // Navigate to camera screen
-  const navigateToCamera = () => {
-    router.push(`/(protected)/camera`);
+  // Navigate to camera screen with permission handling
+  const navigateToCamera = async () => {
+    try {
+      // Check current permission status
+      if (!permission?.granted) {
+        // Request permission
+        const { granted } = await requestPermission();
+        if (granted) {
+          // If permission is granted, navigate to camera
+          router.push('/(protected)/camera');
+        }
+        // If not granted, the alert is shown by expo-camera
+      } else {
+        // Permission already granted, navigate directly
+        router.push('/(protected)/camera');
+      }
+    } catch (error) {
+      console.error('Error requesting camera permission:', error);
+      Alert.alert('Error', 'Failed to access camera. Please try again.');
+    }
   };
 
   const renderOutfitItem = ({ item }: { item: OutfitWithFeedback }) => (

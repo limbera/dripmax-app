@@ -26,6 +26,7 @@ import * as base64 from 'base64-js';
 import { nanoid } from 'nanoid/non-secure';
 import Constants from 'expo-constants';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as FaceDetector from 'expo-face-detector';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -81,6 +82,45 @@ export default function CameraScreen() {
     });
   };
 
+  const detectMultiplePeople = async (uri: string): Promise<boolean> => {
+    try {
+      cameraLogger.info('Detecting multiple people in image');
+      
+      // Process the image to ensure it's in a format FaceDetector can handle
+      const processedImage = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1000 } }], // Resize for better performance
+        { format: ImageManipulator.SaveFormat.JPEG }
+      );
+      
+      // Use the face detector to find faces in the image
+      const result = await FaceDetector.detectFacesAsync(processedImage.uri, {
+        mode: FaceDetector.FaceDetectorMode.fast,
+        detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
+        runClassifications: FaceDetector.FaceDetectorClassifications.none,
+        minDetectionInterval: 0,
+      });
+      
+      // Clean up the processed image to save space
+      if (processedImage.uri !== uri) {
+        await FileSystem.deleteAsync(processedImage.uri, { idempotent: true })
+          .catch(err => cameraLogger.error('Failed to delete temporary image', { error: err }));
+      }
+      
+      // Check if multiple faces were detected (more than 1 face)
+      const hasMultiple = result.faces.length > 1;
+      cameraLogger.info(`Face detection complete: ${result.faces.length} faces found`);
+      return hasMultiple;
+      
+    } catch (error) {
+      cameraLogger.error('Error detecting faces', { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+      // In case of error, assume it's okay to proceed
+      return false;
+    }
+  };
+
   const takePicture = async () => {
     if (!cameraRef.current) return;
     
@@ -124,17 +164,66 @@ export default function CameraScreen() {
     }
     
     try {
-      setIsAnalyzing(true);
+      // Check for multiple people before starting analysis
+      if (!capturedImage) {
+        throw new Error('No image captured');
+      }
       
-      // Start progress animation
-      setProgress(0);
-      progressAnimation.setValue(0);
+      const hasMultiplePeople = await detectMultiplePeople(capturedImage as string);
       
-      // Set up progress tracking with more fine-grained updates
-      const updateProgress = (value: number, message: string) => {
-        setProgress(value);
-        cameraLogger.info(`Analysis progress: ${message} (${value}%)`, { progress: value });
-      };
+      if (hasMultiplePeople) {
+        // Show alert to user
+        Alert.alert(
+          "Multiple People Detected",
+          "We detected more than one person in your photo. For best results, please take a photo with just yourself.",
+          [
+            {
+              text: "Retry",
+              onPress: () => {
+                // Reset camera to take a new photo
+                resetCamera();
+              },
+              style: "cancel"
+            },
+            {
+              text: "Continue Anyway",
+              onPress: () => {
+                // Continue with analysis as normal
+                startAnalysis();
+              }
+            }
+          ]
+        );
+      } else {
+        // No multiple people detected, proceed normally
+        startAnalysis();
+      }
+    } catch (error) {
+      cameraLogger.error('Failed during analysis', { 
+        error: error instanceof Error ? error.message : String(error)
+      });
+      Alert.alert('Error', 'Analysis failed. Please try again.');
+      setIsAnalyzing(false);
+    }
+  };
+
+  const startAnalysis = async () => {
+    setIsAnalyzing(true);
+    
+    // Start progress animation
+    setProgress(0);
+    progressAnimation.setValue(0);
+    
+    // Set up progress tracking with more fine-grained updates
+    const updateProgress = (value: number, message: string) => {
+      setProgress(value);
+      cameraLogger.info(`Analysis progress: ${message} (${value}%)`, { progress: value });
+    };
+    
+    try {
+      if (!capturedImage) {
+        throw new Error('No image captured');
+      }
       
       // Phase 1: Prepare upload (0-10%)
       updateProgress(5, 'Preparing upload');
@@ -214,7 +303,7 @@ export default function CameraScreen() {
   };
 
   // Function to upload an image to Supabase Storage
-  const uploadImage = async (uri: string): Promise<string | null> => {
+  const uploadImage = async (uri: string | null): Promise<string | null> => {
     try {
       if (!uri || !uri.startsWith('file://')) {
         throw new Error('Invalid image URI');
