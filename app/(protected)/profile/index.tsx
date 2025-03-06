@@ -34,6 +34,10 @@ export default function ProfileScreen() {
     }
   };
   
+  const handleNotificationSettings = () => {
+    router.push('/(protected)/profile/notifications');
+  };
+  
   const handleTerms = async () => {
     try {
       await WebBrowser.openBrowserAsync('https://www.dripmax.app/terms');
@@ -197,6 +201,18 @@ export default function ProfileScreen() {
             </View>
             <Text style={styles.buttonText}>
               Get Help
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleNotificationSettings}
+          >
+            <View style={styles.buttonIconContainer}>
+              <Ionicons name="notifications-outline" size={24} color="white" />
+            </View>
+            <Text style={styles.buttonText}>
+              Notification Settings
             </Text>
           </TouchableOpacity>
           

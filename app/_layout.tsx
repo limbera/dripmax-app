@@ -11,6 +11,7 @@ import { useProtectedRoute } from '../hooks/useProtectedRoute';
 import { useAuthStore } from '../stores/authStore';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { navigationLogger } from '../utils/logger';
+import { notificationService } from '../services/notifications';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -21,6 +22,7 @@ export default function RootLayout() {
   const { initialize: initializeSubscription, isInitialized: subscriptionInitialized } = useSubscriptionStore();
   const isMounted = useRef(false);
   const [isReady, setIsReady] = useState(false);
+  const [notificationsInitialized, setNotificationsInitialized] = useState(false);
   
   // Load fonts
   const [fontsLoaded] = useFonts({
@@ -63,6 +65,26 @@ export default function RootLayout() {
     };
   }, [initialize, setupAuthListener, initializeSubscription]);
 
+  // Initialize OneSignal for push notifications
+  useEffect(() => {
+    if (!isMounted.current) return;
+    
+    const initializeNotifications = async () => {
+      try {
+        navigationLogger.info('Initializing push notifications');
+        await notificationService.initialize();
+        setNotificationsInitialized(true);
+        navigationLogger.info('Push notifications initialized successfully');
+      } catch (error) {
+        navigationLogger.error('Error initializing push notifications', error);
+        // Still mark as initialized to not block app startup
+        setNotificationsInitialized(true);
+      }
+    };
+    
+    initializeNotifications();
+  }, []);
+
   // Mark the layout as ready after initialization and fonts are loaded
   useEffect(() => {
     if (isMounted.current && fontsLoaded) {
@@ -73,7 +95,7 @@ export default function RootLayout() {
 
   // Only hide the splash screen when ALL initialization is complete
   useEffect(() => {
-    const appFullyInitialized = fontsLoaded && authInitialized && subscriptionInitialized;
+    const appFullyInitialized = fontsLoaded && authInitialized && subscriptionInitialized && notificationsInitialized;
     
     if (appFullyInitialized) {
       navigationLogger.info('App fully initialized, hiding splash screen');
@@ -90,10 +112,11 @@ export default function RootLayout() {
       navigationLogger.debug('Waiting for full initialization before hiding splash screen', {
         fontsLoaded,
         authInitialized,
-        subscriptionInitialized
+        subscriptionInitialized,
+        notificationsInitialized
       });
     }
-  }, [fontsLoaded, authInitialized, subscriptionInitialized]);
+  }, [fontsLoaded, authInitialized, subscriptionInitialized, notificationsInitialized]);
 
   if (!fontsLoaded) {
     return null;

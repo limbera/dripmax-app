@@ -10,6 +10,7 @@ import { authLogger } from '../utils/logger';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { isAppleAuthAvailable, formatAppleUserData } from '../utils/appleAuth';
 import Constants from 'expo-constants';
+import { linkUserWithNotifications, unlinkUserFromNotifications } from '../utils/notificationUtils';
 
 // Define the WebBrowser result type to include the URL property
 interface WebBrowserAuthSessionResult {
@@ -98,6 +99,11 @@ export const useAuthStore = create<AuthState>()(
           } : null
         });
         
+        // Get previous session to detect sign-in/sign-out
+        const previousSession = get().session;
+        const wasSignedIn = !!previousSession?.user;
+        const isSignedIn = !!session?.user;
+        
         // Update the state with the new session information
         set(state => {
           authLogger.debug('Updating auth store with new session state', {
@@ -111,6 +117,24 @@ export const useAuthStore = create<AuthState>()(
           state.initialized = true;
         });
         
+        // Link user with OneSignal on sign-in
+        if (!wasSignedIn && isSignedIn && session?.user) {
+          authLogger.debug('User signed in, linking with OneSignal', {
+            userId: session.user.id
+          });
+          linkUserWithNotifications(session.user.id).catch(error => {
+            authLogger.error('Error linking user with notifications', error);
+          });
+        }
+        
+        // Unlink user from OneSignal on sign-out
+        if (wasSignedIn && !isSignedIn) {
+          authLogger.debug('User signed out, unlinking from OneSignal');
+          unlinkUserFromNotifications().catch(error => {
+            authLogger.error('Error unlinking user from notifications', error);
+          });
+        }
+        
         // Important: Log the final state to help with debugging
         setTimeout(() => {
           const currentState = get();
@@ -120,7 +144,7 @@ export const useAuthStore = create<AuthState>()(
             hasUser: !!currentState.user,
             userId: currentState.user?.id
           });
-        }, 100);
+        }, 0);
       });
     },
 
@@ -392,27 +416,28 @@ export const useAuthStore = create<AuthState>()(
     },
 
     signOut: async () => {
+      authLogger.info('Signing out user');
+      set(state => { state.isLoading = true; state.error = null; });
+      
       try {
-        authLogger.debug('Signing out');
-        set((state) => {
-          state.isLoading = true;
-          state.error = null;
-        });
-
-        const { error } = await supabase.auth.signOut();
+        // Unlink user from OneSignal
+        await unlinkUserFromNotifications();
         
-        if (error) {
-          authLogger.error('Sign out error', { error: error.message });
-          throw error;
-        }
-
-        authLogger.debug('Sign out successful');
-        // The auth state listener will handle updating the state
-      } catch (error: any) {
-        authLogger.error('Sign out error', { error: error.message });
-        set((state) => {
-          state.error = error.message;
+        // Sign out from Supabase
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        
+        set(state => {
           state.isLoading = false;
+          // We don't reset session or user here - the auth listener will handle that
+        });
+        
+        authLogger.info('User signed out successfully');
+      } catch (error: any) {
+        authLogger.error('Error signing out user', error);
+        set(state => {
+          state.isLoading = false;
+          state.error = error.message || 'Error signing out';
         });
       }
     },

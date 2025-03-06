@@ -26,7 +26,8 @@ module.exports = {
             }
           ],
           NSCameraUsageDescription: "Allow Dripmax to access your camera to capture and analyze your outfits.",
-          NSPhotoLibraryUsageDescription: "Allow Dripmax to access your photos to save and share your outfit captures."
+          NSPhotoLibraryUsageDescription: "Allow Dripmax to access your photos to save and share your outfit captures.",
+          NSUserNotificationUsageDescription: "We'll send you updates about your outfits and new app features."
         }
       },
       
@@ -41,7 +42,9 @@ module.exports = {
           "android.permission.CAMERA",
           "android.permission.RECORD_AUDIO",
           "android.permission.READ_EXTERNAL_STORAGE",
-          "android.permission.WRITE_EXTERNAL_STORAGE"
+          "android.permission.WRITE_EXTERNAL_STORAGE",
+          "android.permission.RECEIVE_BOOT_COMPLETED",
+          "android.permission.VIBRATE"
         ]
       },
       
@@ -58,7 +61,7 @@ module.exports = {
         [
           "expo-splash-screen",
           {
-            "image": "./assets/images/icon-alt.png",
+            "image": "./assets/images/splash-icon.png",
             "imageWidth": 200,
             "resizeMode": "contain",
             "backgroundColor": "#00FF77"
@@ -75,7 +78,8 @@ module.exports = {
         "expo-image-picker",
         [
           "expo-apple-authentication"
-        ]
+        ],
+        "expo-notifications"
       ],
       
       // Experiments
@@ -95,7 +99,8 @@ module.exports = {
         supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
         authRedirectUrl: process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL,
         revenuecatAppleApiKey: process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY,
-        revenuecatGoogleApiKey: process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY
+        revenuecatGoogleApiKey: process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY,
+        oneSignalAppId: process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID
       },
       
       owner: "limbera"
