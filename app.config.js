@@ -58,10 +58,10 @@ module.exports = {
         [
           "expo-splash-screen",
           {
-            "image": "./assets/images/splash-icon.png",
+            "image": "./assets/images/icon-alt.png",
             "imageWidth": 200,
             "resizeMode": "contain",
-            "backgroundColor": "#ffffff"
+            "backgroundColor": "#00FF77"
           }
         ],
         "expo-secure-store",

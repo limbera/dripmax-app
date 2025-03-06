@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
 
@@ -65,22 +64,6 @@ export default function Index() {
     }, 0);
   }, [isAuthenticated, initialized, hasActiveSubscription, router]);
 
-  return (
-    <View style={[styles.container, { backgroundColor: 'black' }]}>
-      <ActivityIndicator size="large" color="#00FF77" />
-      <Text style={[styles.text, { color: 'white', fontFamily: 'RobotoMono-Regular' }]}>Loading...</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  text: {
-    marginTop: 20,
-    fontSize: 16,
-  },
-}); 
+  // Return null instead of a loading screen - the splash screen will be showing
+  return null;
+} 

@@ -17,13 +17,13 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const { initialize, setupAuthListener } = useAuthStore();
-  const { initialize: initializeSubscription } = useSubscriptionStore();
+  const { initialize, setupAuthListener, initialized: authInitialized } = useAuthStore();
+  const { initialize: initializeSubscription, isInitialized: subscriptionInitialized } = useSubscriptionStore();
   const isMounted = useRef(false);
   const [isReady, setIsReady] = useState(false);
   
   // Load fonts
-  const [loaded] = useFonts({
+  const [fontsLoaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
@@ -65,19 +65,37 @@ export default function RootLayout() {
 
   // Mark the layout as ready after initialization and fonts are loaded
   useEffect(() => {
-    if (isMounted.current && loaded) {
+    if (isMounted.current && fontsLoaded) {
       navigationLogger.info('Root layout ready for protected route navigation');
       setIsReady(true);
     }
-  }, [loaded]);
+  }, [fontsLoaded]);
 
+  // Only hide the splash screen when ALL initialization is complete
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+    const appFullyInitialized = fontsLoaded && authInitialized && subscriptionInitialized;
+    
+    if (appFullyInitialized) {
+      navigationLogger.info('App fully initialized, hiding splash screen');
+      // Small delay to ensure all state updates are processed
+      setTimeout(async () => {
+        try {
+          await SplashScreen.hideAsync();
+          navigationLogger.info('Splash screen hidden successfully');
+        } catch (e) {
+          navigationLogger.error('Error hiding splash screen', e);
+        }
+      }, 100); // Brief delay
+    } else {
+      navigationLogger.debug('Waiting for full initialization before hiding splash screen', {
+        fontsLoaded,
+        authInitialized,
+        subscriptionInitialized
+      });
     }
-  }, [loaded]);
+  }, [fontsLoaded, authInitialized, subscriptionInitialized]);
 
-  if (!loaded) {
+  if (!fontsLoaded) {
     return null;
   }
 
