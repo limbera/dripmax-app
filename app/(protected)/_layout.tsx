@@ -118,6 +118,22 @@ export default function ProtectedLayout() {
           animation: 'slide_from_right',
         }}
       />
+      <Stack.Screen
+        name="garments/index"
+        options={{
+          headerShown: true,
+          presentation: 'card',
+          animation: 'slide_from_right',
+        }}
+      />
+      <Stack.Screen
+        name="garments/camera"
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+        }}
+      />
     </Stack>
   );
 } 

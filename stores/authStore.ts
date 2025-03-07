@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { supabase, setupAuthStateListener } from '../services/supabase';
+import { supabase, setupAuthStateListener, ensureGarmentsBucket } from '../services/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
@@ -171,6 +171,18 @@ export const useAuthStore = create<AuthState>()(
             provider: data.session.user.app_metadata?.provider
           } : null
         });
+
+        // If user is authenticated, ensure the garments bucket exists
+        if (data.session?.user) {
+          try {
+            const { success, error } = await ensureGarmentsBucket();
+            if (!success) {
+              authLogger.warn('Failed to ensure garments bucket exists', { error });
+            }
+          } catch (bucketError) {
+            authLogger.error('Error ensuring garments bucket', { error: bucketError });
+          }
+        }
 
         set((state) => {
           state.session = data.session;

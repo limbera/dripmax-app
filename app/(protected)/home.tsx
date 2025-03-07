@@ -233,16 +233,28 @@ export default function HomeScreen() {
             </Text>
           ),
           headerRight: () => (
-            <TouchableOpacity 
-              onPress={() => router.push('/(protected)/profile')}
-              style={{ marginRight: 8 }}
-            >
-              <Ionicons 
-                name="happy" 
-                size={28} 
-                color="white" 
-              />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity 
+                onPress={() => router.push('/garments')}
+                style={{ marginRight: 16 }}
+              >
+                <Ionicons 
+                  name="shirt-outline" 
+                  size={24} 
+                  color="white" 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => router.push('/(protected)/profile')}
+                style={{ marginRight: 8 }}
+              >
+                <Ionicons 
+                  name="happy" 
+                  size={28} 
+                  color="white" 
+                />
+              </TouchableOpacity>
+            </View>
           ),
         }}
       />
