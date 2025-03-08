@@ -8,15 +8,17 @@ import {
   RefreshControl, 
   ActivityIndicator, 
   TouchableOpacity,
-  Alert
+  Alert,
+  SafeAreaView,
+  StatusBar
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
-import { useColorScheme } from '../../hooks/useColorScheme';
-import { Colors } from '../../constants/Colors';
-import { getTimeAgo } from '../../utils/timeFormatter';
-import { useOutfitStore, OutfitWithFeedback } from '../../stores/outfitStore';
+import { useColorScheme } from '../../../hooks/useColorScheme';
+import { Colors } from '../../../constants/Colors';
+import { getTimeAgo } from '../../../utils/timeFormatter';
+import { useOutfitStore, OutfitWithFeedback } from '../../../stores/outfitStore';
 import { Ionicons } from '@expo/vector-icons';
-import { getTransformedImageUrl } from '../../services/supabase';
+import { getTransformedImageUrl } from '../../../services/supabase';
 import { router } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
 
@@ -25,7 +27,7 @@ const getRatingColor = (rating: number) => {
   return '#00FF77'; // Changed to always return the requested color
 };
 
-export default function HomeScreen() {
+export default function DripsScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
@@ -212,10 +214,11 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={[styles.mainContainer, { backgroundColor: 'black' }]}>
+    <SafeAreaView style={[styles.mainContainer, { backgroundColor: 'black' }]}>
+      <StatusBar barStyle="light-content" backgroundColor="black" />
       <Stack.Screen
         options={{
-          title: "My Drips",
+          title: "Drips",
           headerLargeTitle: false,
           headerStyle: {
             backgroundColor: 'black',
@@ -232,49 +235,11 @@ export default function HomeScreen() {
               dripmax
             </Text>
           ),
-          headerRight: () => (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity 
-                onPress={() => router.push('/garments')}
-                style={{ marginRight: 16 }}
-              >
-                <Ionicons 
-                  name="shirt-outline" 
-                  size={24} 
-                  color="white" 
-                />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => router.push('/(protected)/profile')}
-                style={{ marginRight: 8 }}
-              >
-                <Ionicons 
-                  name="happy" 
-                  size={28} 
-                  color="white" 
-                />
-              </TouchableOpacity>
-            </View>
-          ),
         }}
       />
       
       {content}
-
-      {/* Floating Action Button for Camera - Only show when there are outfits */}
-      {outfits.length > 0 && (
-        <TouchableOpacity
-          style={[
-            styles.fab,
-            { backgroundColor: '#00FF77' }
-          ]}
-          onPress={navigateToCamera}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="camera" size={28} color="#000" />
-        </TouchableOpacity>
-      )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -417,20 +382,4 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
   },
-  fab: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    right: 20,
-    bottom: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    zIndex: 999,
-  }
 }); 

@@ -1,5 +1,5 @@
 import { Redirect } from 'expo-router';
 
-export default function ProtectedIndex() {
+export default function TabsIndex() {
   return <Redirect href="/(protected)/(tabs)/drips" />;
 } 
