@@ -162,7 +162,7 @@ export default function OutfitDetailScreen() {
             color="white" 
           />
           <Text style={{ color: 'white', fontFamily: 'RobotoMono-Regular' }}>
-            Home
+            Drips
           </Text>
         </TouchableOpacity>
       ),

@@ -77,8 +77,11 @@ export default function GarmentCameraScreen() {
         throw error;
       }
       
-      // Navigate back to garments list
-      router.back();
+      // Replace current screen with wardrobe tab screen with refresh flag
+      router.replace({
+        pathname: '/(protected)/(tabs)/wardrobe',
+        params: { refresh: 'true' }
+      });
     } catch (error: any) {
       console.error('Garment creation error:', error);
       Alert.alert('Error', error.message || 'Failed to save garment. Please try again.');
@@ -94,7 +97,7 @@ export default function GarmentCameraScreen() {
 
   // Go back to garments list
   const goBack = () => {
-    router.back();
+    router.replace('/(protected)/(tabs)/wardrobe');
   };
 
   return (

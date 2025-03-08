@@ -6,11 +6,13 @@ import { useColorScheme } from '../../hooks/useColorScheme';
 import { Colors } from '../../constants/Colors';
 import { ActivityIndicator, View, Text } from 'react-native';
 import { navigationLogger } from '../../utils/logger';
+import { useRouter } from 'expo-router';
 
 export default function ProtectedLayout() {
   const { isLoading, initialized, isAuthenticated, user } = useAuth();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const router = useRouter();
 
   // Log component mount and unmount
   useEffect(() => {
@@ -21,10 +23,15 @@ export default function ProtectedLayout() {
       hasUser: !!user
     });
 
+    // Redirect to tabs when accessing the protected layout directly
+    if (!isLoading && initialized && isAuthenticated) {
+      router.replace('/(protected)/(tabs)/drips');
+    }
+
     return () => {
       navigationLogger.debug('Protected layout unmounted');
     };
-  }, []);
+  }, [isLoading, initialized, isAuthenticated]);
 
   // Log when auth state changes
   useEffect(() => {
@@ -132,6 +139,20 @@ export default function ProtectedLayout() {
           headerShown: false,
           presentation: 'modal',
           animation: 'slide_from_bottom',
+        }}
+      />
+      <Stack.Screen
+        name="garments/[id]"
+        options={{
+          headerShown: true,
+          presentation: 'card',
+          animation: 'slide_from_right',
+        }}
+      />
+      <Stack.Screen
+        name="(tabs)"
+        options={{
+          headerShown: false,
         }}
       />
     </Stack>

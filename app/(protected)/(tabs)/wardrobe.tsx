@@ -9,7 +9,9 @@ import {
   RefreshControl,
   Dimensions,
   ActivityIndicator,
-  Alert
+  Alert,
+  SafeAreaView,
+  StatusBar
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +22,7 @@ const COLUMN_COUNT = 3;
 const ITEM_MARGIN = 4;
 const ITEM_WIDTH = (width - (ITEM_MARGIN * (COLUMN_COUNT + 1))) / COLUMN_COUNT;
 
-export default function GarmentsScreen() {
+export default function WardrobeScreen() {
   const router = useRouter();
   const { refresh } = useLocalSearchParams();
   const [garments, setGarments] = useState<Garment[]>([]);
@@ -128,7 +130,8 @@ export default function GarmentsScreen() {
   };
 
   return (
-    <>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="black" />
       <Stack.Screen 
         options={{
           title: 'Wardrobe',
@@ -162,23 +165,16 @@ export default function GarmentsScreen() {
             ListEmptyComponent={renderEmptyState}
           />
         )}
-
-        {/* Floating Action Button */}
-        {garments.length > 0 && (
-          <TouchableOpacity 
-            style={styles.fab} 
-            onPress={navigateToCamera}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={24} color="black" />
-          </TouchableOpacity>
-        )}
       </View>
-    </>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
   container: {
     flex: 1,
     backgroundColor: 'black',
@@ -251,21 +247,5 @@ const styles = StyleSheet.create({
     color: 'black',
     marginLeft: 8,
     fontFamily: 'RobotoMono-Regular',
-  },
-  fab: {
-    position: 'absolute',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#00FF77',
-    right: 16,
-    bottom: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 8,
-    shadowColor: '#00FF77',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
   },
 }); 

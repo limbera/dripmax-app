@@ -52,7 +52,7 @@ export default function Index() {
       if (isAuthenticated) {
         if (hasActiveSubscription) {
           console.log('[INDEX] User has subscription, redirecting to protected area');
-          router.replace('/(protected)');
+          router.replace('/(protected)/(tabs)/drips');
         } else {
           console.log('[INDEX] User authenticated but needs subscription, redirecting to paywall');
           router.replace('/(auth)/paywall' as any);

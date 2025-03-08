@@ -128,8 +128,21 @@ export const getTransformedImageUrl = (
   const bucket = urlParts[1].split('/')[0];
   const path = urlParts[1].substring(bucket.length + 1);
   
+  // Log for debugging
+  supabaseLogger.debug('Image transformation details', {
+    bucket,
+    path,
+    originalUrl: url
+  });
+  
+  // TEMPORARY FIX: Skip transformation for garments bucket
+  if (bucket === 'garments') {
+    supabaseLogger.debug('Skipping transformation for garments bucket');
+    return url;
+  }
+  
   // Get transformed URL
-  return supabase.storage
+  const transformedUrl = supabase.storage
     .from(bucket)
     .getPublicUrl(path, {
       transform: {
@@ -138,6 +151,12 @@ export const getTransformedImageUrl = (
         quality,
       },
     }).data.publicUrl;
+    
+  supabaseLogger.debug('Transformed URL result', {
+    transformedUrl
+  });
+  
+  return transformedUrl;
 };
 
 // Garment type definition
@@ -472,5 +491,40 @@ export const ensureGarmentsBucket = async () => {
   } catch (error: any) {
     supabaseLogger.error('Error ensuring garments bucket exists', { error: error.message });
     return { success: false, error };
+  }
+};
+
+/**
+ * Fetch a specific garment by ID
+ * @param garmentId ID of the garment to fetch
+ * @returns The garment and any error
+ */
+export const fetchGarmentById = async (garmentId: string) => {
+  try {
+    supabaseLogger.debug('Fetching garment by ID', { garmentId });
+    
+    const { data: garment, error } = await supabase
+      .from('garments')
+      .select('*')
+      .eq('id', garmentId)
+      .single();
+    
+    if (error) {
+      supabaseLogger.error('Error fetching garment by ID', { 
+        error: error.message, 
+        garmentId 
+      });
+      throw error;
+    }
+    
+    supabaseLogger.debug('Garment fetched successfully', { 
+      garmentId, 
+      hasData: !!garment 
+    });
+    
+    return { garment, error: null };
+  } catch (error: any) {
+    supabaseLogger.error('Error in fetchGarmentById', { error: error.message });
+    return { garment: null, error };
   }
 }; 

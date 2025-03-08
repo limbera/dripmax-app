@@ -523,9 +523,9 @@ export default function CameraScreen() {
   };
 
   const goBackToHome = () => {
-    // Navigate back to home page
-    router.back();
-    cameraLogger.info('Navigating back to home screen');
+    // Navigate back to the drips tab
+    router.replace('/(protected)/(tabs)/drips');
+    cameraLogger.info('Navigating back to drips tab');
   };
 
   // Add this function to create the scanning line animation
