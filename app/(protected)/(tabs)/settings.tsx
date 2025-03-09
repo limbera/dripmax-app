@@ -164,6 +164,8 @@ export default function SettingsScreen() {
           ),
         }}
       />
+      <Text style={styles.pageTitle}>Settings</Text>
+      
       <View style={[
         styles.container,
         { backgroundColor: 'black' }
@@ -302,6 +304,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 8,
     color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 16,
+    marginBottom: 16,
+    marginLeft: 16,
     fontFamily: 'RobotoMono-Regular',
   },
 }); 

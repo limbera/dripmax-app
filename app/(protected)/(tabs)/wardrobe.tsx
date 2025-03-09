@@ -17,10 +17,19 @@ import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchGarments, Garment, getTransformedImageUrl } from '../../../services/supabase';
 
+// Define a type for the "Add Piece" item
+type AddPieceItem = {
+  id: string;
+  isAddPiece: true;
+};
+
+// Union type for all items that can appear in the grid
+type GridItem = Garment | AddPieceItem;
+
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
 const ITEM_MARGIN = 4;
-const ITEM_WIDTH = (width - (ITEM_MARGIN * (COLUMN_COUNT + 1))) / COLUMN_COUNT;
+const ITEM_WIDTH = (width - (2 * 16) - (ITEM_MARGIN * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
 
 export default function WardrobeScreen() {
   const router = useRouter();
@@ -83,8 +92,24 @@ export default function WardrobeScreen() {
   };
 
   // Render a single garment item
-  const renderItem = ({ item }: { item: Garment }) => {
-    // Try both approaches - get the transformed URL but fallback to original 
+  const renderItem = ({ item }: { item: GridItem }) => {
+    // Check if this is the special "Add Piece" item
+    if ('isAddPiece' in item) {
+      return (
+        <TouchableOpacity 
+          style={styles.dropZoneItem}
+          activeOpacity={0.7}
+          onPress={navigateToCamera}
+        >
+          <View style={styles.dropZoneContent}>
+            <Ionicons name="add-circle" size={40} color="#00FF77" />
+            <Text style={styles.dropZoneText}>Add Piece</Text>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+    
+    // Otherwise, render a normal garment item
     const originalUrl = item.image_url;
     
     return (
@@ -106,28 +131,15 @@ export default function WardrobeScreen() {
     );
   };
 
-  // Render empty state when no garments
-  const renderEmptyState = () => {
-    if (loading) return null;
-    
-    return (
-      <View style={styles.emptyStateContainer}>
-        <Ionicons name="shirt-outline" size={80} color="#00FF77" />
-        <Text style={styles.emptyTitle}>Your Wardrobe is Empty</Text>
-        <Text style={styles.emptyText}>
-          Start building your collection by adding garments.
-        </Text>
-        <TouchableOpacity 
-          style={styles.emptyStateButton}
-          onPress={navigateToCamera}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add-circle-outline" size={24} color="white" />
-          <Text style={styles.emptyButtonText}>Add Garment</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
+  // Render info card that appears when fewer than 3 garments
+  const renderInfoCard = () => (
+    <View style={styles.infoCard}>
+      <Ionicons name="information-circle-outline" size={24} color="#00FF77" />
+      <Text style={styles.infoCardText}>
+        Adding items to your wardrobe will improve outfit rating suggestions
+      </Text>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -143,27 +155,38 @@ export default function WardrobeScreen() {
         }} 
       />
       
+      <Text style={styles.pageTitle}>Wardrobe</Text>
+      
       <View style={styles.container}>
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#00FF77" />
           </View>
         ) : (
-          <FlatList
-            data={garments}
-            renderItem={renderItem}
-            keyExtractor={item => item.id}
-            numColumns={COLUMN_COUNT}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl 
-                refreshing={refreshing} 
-                onRefresh={onRefresh}
-                tintColor="#00FF77"
-              />
-            }
-            ListEmptyComponent={renderEmptyState}
-          />
+          <>
+            <FlatList
+              data={[{ id: 'add-piece', isAddPiece: true } as AddPieceItem, ...garments]}
+              renderItem={renderItem}
+              keyExtractor={item => item.id}
+              numColumns={COLUMN_COUNT}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl 
+                  refreshing={refreshing} 
+                  onRefresh={onRefresh}
+                  tintColor="#00FF77"
+                />
+              }
+              ListEmptyComponent={null} // We don't need a separate empty component anymore
+            />
+            
+            {/* Show info card only when fewer than 3 garments */}
+            {garments.length < 3 && (
+              <View style={styles.infoCardContainer}>
+                {renderInfoCard()}
+              </View>
+            )}
+          </>
         )}
       </View>
     </SafeAreaView>
@@ -186,7 +209,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   listContent: {
-    padding: ITEM_MARGIN,
+    padding: 16,
+    paddingTop: 8,
+    paddingBottom: 30,
     flexGrow: 1,
   },
   garmentItem: {
@@ -246,6 +271,59 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'black',
     marginLeft: 8,
+    fontFamily: 'RobotoMono-Regular',
+  },
+  dropZoneItem: {
+    width: ITEM_WIDTH,
+    height: ITEM_WIDTH,
+    margin: ITEM_MARGIN,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#1A1A1A',
+    borderWidth: 2,
+    borderColor: '#333',
+    borderStyle: 'dashed',
+  },
+  dropZoneContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropZoneText: {
+    color: 'white',
+    marginTop: 8,
+    fontSize: 14,
+    fontFamily: 'RobotoMono-Regular',
+  },
+  infoCardContainer: {
+    padding: 16,
+    paddingBottom: 30,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#00FF77',
+    width: '100%',
+  },
+  infoCardText: {
+    color: 'white',
+    marginLeft: 12,
+    fontSize: 14,
+    fontFamily: 'RobotoMono-Regular',
+    flex: 1,
+    opacity: 0.9,
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 16,
+    marginBottom: 16,
+    marginLeft: 16,
     fontFamily: 'RobotoMono-Regular',
   },
 }); 

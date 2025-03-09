@@ -238,6 +238,9 @@ export default function DripsScreen() {
         }}
       />
       
+      {/* Add page title */}
+      <Text style={styles.pageTitle}>Drips</Text>
+      
       {content}
     </SafeAreaView>
   );
@@ -381,5 +384,14 @@ const styles = StyleSheet.create({
   emptyStateIconContainer: {
     position: 'absolute',
     right: 20,
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 16,
+    marginBottom: 16,
+    marginLeft: 16,
+    fontFamily: 'RobotoMono-Regular',
   },
 }); 
