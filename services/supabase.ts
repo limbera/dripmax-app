@@ -170,6 +170,16 @@ export interface Garment {
   tags: string[] | null;
   created_at: string;
   updated_at: string;
+  // New AI analysis fields
+  type: string | null;
+  brand: string | null;
+  primary_color: string | null;
+  secondary_colors: string[] | null;
+  pattern: string | null;
+  material: string | null;
+  size_range: string | null;
+  fit_style: string | null;
+  price_range: string | null;
 }
 
 /**
@@ -525,6 +535,116 @@ export const fetchGarmentById = async (garmentId: string) => {
     return { garment, error: null };
   } catch (error: any) {
     supabaseLogger.error('Error in fetchGarmentById', { error: error.message });
+    return { garment: null, error };
+  }
+};
+
+/**
+ * Analyze and create a garment using the Supabase Edge Function
+ * @param imageUri Local URI of the garment image
+ * @returns The created garment and any error
+ */
+export const analyzeAndCreateGarment = async (imageUri: string) => {
+  supabaseLogger.info('Starting garment analysis and creation', { imageUriLength: imageUri?.length });
+  
+  try {
+    // First get the current user
+    supabaseLogger.debug('Fetching current user');
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      supabaseLogger.error('User not authenticated');
+      throw new Error('User not authenticated');
+    }
+    
+    supabaseLogger.info('User authenticated', { userId: user.id });
+
+    // Compress the image before processing
+    supabaseLogger.debug('Compressing image', { imageUriStart: imageUri.substring(0, 30) });
+    let compressedImage;
+    try {
+      compressedImage = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [{ resize: { width: 1000 } }], // Resize to max width of 1000px to reduce size
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true } // 60% quality JPEG with base64
+      );
+      
+      supabaseLogger.debug('Image compressed successfully', {
+        originalUri: imageUri.substring(0, 30) + '...',
+        compressedUri: compressedImage.uri.substring(0, 30) + '...',
+        width: compressedImage.width,
+        height: compressedImage.height,
+        base64Length: compressedImage.base64?.length
+      });
+    } catch (compressionError: any) {
+      supabaseLogger.error('Failed to compress image', { 
+        error: compressionError.message, 
+        stack: compressionError.stack
+      });
+      throw compressionError;
+    }
+
+    if (!compressedImage.base64) {
+      supabaseLogger.error('Failed to get base64 data from compressed image');
+      throw new Error('Failed to get base64 data from compressed image');
+    }
+    
+    // Call the Edge Function
+    supabaseLogger.info('Calling analyze-garment Edge Function');
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-garment', {
+        body: { 
+          image: compressedImage.base64,
+          userId: user.id
+        }
+      });
+      
+      if (error) {
+        supabaseLogger.error('Edge function error', { 
+          error: error.message,
+          name: error.name,
+          code: error?.code,
+          details: JSON.stringify(error) 
+        });
+        throw error;
+      }
+      
+      if (!data || !data.garment) {
+        supabaseLogger.error('Edge function returned no garment data', { response: JSON.stringify(data) });
+        throw new Error('Edge function returned no garment data');
+      }
+      
+      supabaseLogger.info('Garment created successfully via Edge Function', { 
+        garmentId: data.garment.id 
+      });
+      
+      return { garment: data.garment, error: null };
+    } catch (functionError: any) {
+      supabaseLogger.error('Function invocation error', { 
+        message: functionError.message,
+        name: functionError.name,
+        code: functionError?.code,
+        status: functionError?.status,
+        details: JSON.stringify(functionError)
+      });
+      
+      // Check for payload size issues
+      if (compressedImage.base64 && compressedImage.base64.length > 1000000) {
+        supabaseLogger.error('Image payload may be too large', { 
+          size: compressedImage.base64.length 
+        });
+        throw new Error('Image file is too large. Please try again with a smaller image.');
+      }
+      
+      throw functionError;
+    }
+  } catch (error: any) {
+    supabaseLogger.error('Error analyzing and creating garment', { 
+      error: error.message,
+      stack: error.stack, 
+      name: error.name,
+      code: error?.code
+    });
     return { garment: null, error };
   }
 }; 

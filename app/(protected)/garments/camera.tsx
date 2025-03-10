@@ -14,7 +14,7 @@ import { Stack, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { createGarment } from '../../../services/supabase';
+import { analyzeAndCreateGarment } from '../../../services/supabase';
 
 export default function GarmentCameraScreen() {
   const router = useRouter();
@@ -69,19 +69,55 @@ export default function GarmentCameraScreen() {
     try {
       setIsProcessing(true);
       
-      const { garment, error } = await createGarment(capturedImage);
+      // Show a longer message since the AI analysis takes time
+      Alert.alert(
+        'Processing',
+        'Analyzing your garment with AI. This may take up to 30 seconds...',
+        [],
+        { cancelable: false }
+      );
+      
+      // Call the new Edge Function for AI analysis and garment creation
+      const { garment, error } = await analyzeAndCreateGarment(capturedImage);
       
       if (error) {
-        console.error('Error creating garment:', error);
-        Alert.alert('Error', 'Failed to save garment. Please try again.');
+        console.error('Error analyzing and creating garment:', error);
+        
+        // Check for common errors and provide user-friendly messages
+        let errorMessage = 'Failed to save garment. Please try again.';
+        
+        if (error.message?.includes('too large')) {
+          errorMessage = 'The image is too large. Please try again with a smaller or lower quality photo.';
+        } else if (error.message?.includes('network')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (error.message?.includes('authenticate')) {
+          errorMessage = 'Your session has expired. Please log in again.';
+          // Could add navigation to login screen here if needed
+        }
+        
+        Alert.alert('Error', errorMessage);
         throw error;
       }
       
-      // Replace current screen with wardrobe tab screen with refresh flag
-      router.replace({
-        pathname: '/(protected)/(tabs)/wardrobe',
-        params: { refresh: 'true' }
-      });
+      // No need to dismiss the alert - React Native's Alert gets dismissed automatically
+      
+      // Show success message
+      Alert.alert(
+        'Success!',
+        'Your garment has been analyzed and added to your wardrobe.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Replace current screen with wardrobe tab screen with refresh flag
+              router.replace({
+                pathname: '/(protected)/(tabs)/wardrobe',
+                params: { refresh: 'true' }
+              });
+            }
+          }
+        ]
+      );
     } catch (error: any) {
       console.error('Garment creation error:', error);
       Alert.alert('Error', error.message || 'Failed to save garment. Please try again.');

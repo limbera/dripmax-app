@@ -127,6 +127,25 @@ export default function WardrobeScreen() {
             // e.currentTarget.src = originalUrl;
           }}
         />
+        
+        {/* Category badge */}
+        {item.category && item.category !== 'uncategorized' && (
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryText}>
+              {item.type || item.category}
+            </Text>
+          </View>
+        )}
+        
+        {/* Color indicator */}
+        {item.primary_color && (
+          <View 
+            style={[
+              styles.colorIndicator, 
+              { backgroundColor: item.primary_color.toLowerCase() }
+            ]} 
+          />
+        )}
       </TouchableOpacity>
     );
   };
@@ -325,5 +344,27 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginLeft: 16,
     fontFamily: 'RobotoMono-Regular',
+  },
+  categoryBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    padding: 4,
+    backgroundColor: '#00FF77',
+    borderRadius: 4,
+  },
+  categoryText: {
+    color: 'black',
+    fontSize: 12,
+    fontWeight: 'bold',
+    fontFamily: 'RobotoMono-Regular',
+  },
+  colorIndicator: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
 }); 

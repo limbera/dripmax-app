@@ -300,6 +300,114 @@ export default function GarmentDetailScreen() {
             </View>
           )}
           
+          {/* AI Analysis Section */}
+          {(garment?.type || garment?.brand || garment?.primary_color || 
+            garment?.pattern || garment?.material || garment?.fit_style || 
+            garment?.price_range) && (
+            <View style={styles.section}>
+              <SectionHeader 
+                title="AI Analysis" 
+                iconType="MaterialCommunityIcons" 
+                iconName="brain" 
+                color="#4A90E2"
+              />
+              
+              <View style={styles.aiAnalysisContainer}>
+                {/* Type */}
+                {garment?.type && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Type:</Text>
+                    <Text style={styles.detailValue}>{garment.type}</Text>
+                  </View>
+                )}
+                
+                {/* Brand */}
+                {garment?.brand && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Brand:</Text>
+                    <Text style={styles.detailValue}>{garment.brand}</Text>
+                  </View>
+                )}
+                
+                {/* Primary Color */}
+                {garment?.primary_color && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Primary Color:</Text>
+                    <View style={styles.colorContainer}>
+                      <View 
+                        style={[
+                          styles.colorSwatch, 
+                          { backgroundColor: garment.primary_color.toLowerCase() }
+                        ]} 
+                      />
+                      <Text style={styles.detailValue}>{garment.primary_color}</Text>
+                    </View>
+                  </View>
+                )}
+                
+                {/* Secondary Colors */}
+                {garment?.secondary_colors && garment.secondary_colors.length > 0 && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Secondary Colors:</Text>
+                    <View style={styles.colorsContainer}>
+                      {garment.secondary_colors.map((color, index) => (
+                        <View key={index} style={styles.colorItem}>
+                          <View 
+                            style={[
+                              styles.colorSwatch, 
+                              { backgroundColor: color.toLowerCase() }
+                            ]} 
+                          />
+                          <Text style={styles.detailValue}>{color}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+                
+                {/* Pattern */}
+                {garment?.pattern && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Pattern:</Text>
+                    <Text style={styles.detailValue}>{garment.pattern}</Text>
+                  </View>
+                )}
+                
+                {/* Material */}
+                {garment?.material && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Material:</Text>
+                    <Text style={styles.detailValue}>{garment.material}</Text>
+                  </View>
+                )}
+                
+                {/* Size Range */}
+                {garment?.size_range && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Size Range:</Text>
+                    <Text style={styles.detailValue}>{garment.size_range}</Text>
+                  </View>
+                )}
+                
+                {/* Fit Style */}
+                {garment?.fit_style && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Fit Style:</Text>
+                    <Text style={styles.detailValue}>{garment.fit_style}</Text>
+                  </View>
+                )}
+                
+                {/* Price Range */}
+                {garment?.price_range && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Est. Price Range:</Text>
+                    <Text style={styles.detailValue}>{garment.price_range}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+          
           {/* Color (if available) */}
           {garment?.color && (
             <View style={styles.section}>
@@ -450,5 +558,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
+  },
+  aiAnalysisContainer: {
+    padding: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+    marginRight: 8,
+  },
+  detailValue: {
+    fontSize: 16,
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+  },
+  colorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  colorSwatch: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  colorsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  colorItem: {
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 8,
   },
 }); 
