@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -8,57 +8,115 @@ import {
   ActivityIndicator, 
   Alert,
   StatusBar,
-  SafeAreaView
+  SafeAreaView,
+  Platform,
+  Dimensions
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, FlashMode, CameraType } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { analyzeAndCreateGarment } from '../../../services/supabase';
 
+// Constants for aspect ratio calculations
+const ASPECT_RATIOS = {
+  'square': 1,     // 1:1
+  'standard': 4/3,  // 4:3 (changed from 16:9)
+};
+
 export default function GarmentCameraScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
-  const [cameraType, setCameraType] = useState<'back' | 'front'>('back');
-  const [flash, setFlash] = useState<'off' | 'on'>('off');
+  const cameraRef = useRef<CameraView>(null);
+  const [cameraType, setCameraType] = useState<CameraType>('back');
+  const [flash, setFlash] = useState<FlashMode>('off');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const cameraRef = useRef<any>(null);
+  // New state for aspect ratio, with only two options now
+  const [aspectRatio, setAspectRatio] = useState<'square' | 'standard'>('standard');
+  const [screenDimensions, setScreenDimensions] = useState({
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  });
 
-  // Request camera permission if not granted
-  if (!permission?.granted) {
-    // Request permission
-    requestPermission();
-  }
+  // Update screen dimensions on orientation change
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenDimensions({
+        width: window.width,
+        height: window.height,
+      });
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  // Request camera permissions if not already granted
+  useEffect(() => {
+    if (!permission?.granted) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
 
   // Toggle between front and back camera
   const toggleCameraFacing = () => {
-    setCameraType(current => (current === 'back' ? 'front' : 'back'));
+    setCameraType(cameraType === 'back' ? 'front' : 'back');
   };
 
-  // Toggle flash
+  // Toggle flash mode
   const toggleFlash = () => {
-    setFlash(current => (current === 'off' ? 'on' : 'off'));
+    setFlash(flash === 'off' ? 'on' : 'off');
   };
 
-  // Take a picture
+  // Take a picture with current aspect ratio
   const takePicture = async () => {
-    if (cameraRef.current) {
-      try {
-        const photo = await cameraRef.current.takePictureAsync();
-        
-        // Compress the image to reduce size
-        const compressedImage = await ImageManipulator.manipulateAsync(
-          photo.uri,
-          [{ resize: { width: 1080 } }],
-          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-        );
-        
-        setCapturedImage(compressedImage.uri);
-      } catch (error) {
-        console.error('Error taking picture:', error);
-        Alert.alert('Error', 'Failed to capture image. Please try again.');
+    if (!cameraRef.current) return;
+    
+    try {
+      const photo = await cameraRef.current.takePictureAsync();
+      
+      // Check if photo is undefined
+      if (!photo || !photo.uri) {
+        throw new Error("Failed to capture photo");
       }
+      
+      // Process the photo to match the selected aspect ratio
+      const originalAspectRatio = photo.width / photo.height;
+      const targetAspectRatio = ASPECT_RATIOS[aspectRatio];
+      
+      let cropConfig;
+      if (originalAspectRatio > targetAspectRatio) {
+        // Original is wider, crop width
+        const newWidth = photo.height * targetAspectRatio;
+        const offsetX = (photo.width - newWidth) / 2;
+        cropConfig = {
+          originX: offsetX,
+          originY: 0,
+          width: newWidth,
+          height: photo.height
+        };
+      } else {
+        // Original is taller, crop height
+        const newHeight = photo.width / targetAspectRatio;
+        const offsetY = (photo.height - newHeight) / 2;
+        cropConfig = {
+          originX: 0,
+          originY: offsetY,
+          width: photo.width,
+          height: newHeight
+        };
+      }
+      
+      const processedPhoto = await ImageManipulator.manipulateAsync(
+        photo.uri,
+        [{ crop: cropConfig }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      
+      setCapturedImage(processedPhoto.uri);
+    } catch (error) {
+      console.error('Failed to take picture:', error);
+      Alert.alert('Error', 'Failed to capture image. Please try again.');
     }
   };
 
@@ -136,6 +194,38 @@ export default function GarmentCameraScreen() {
     router.replace('/(protected)/(tabs)/wardrobe');
   };
 
+  // Handle aspect ratio change
+  const changeAspectRatio = (newRatio: 'square' | 'standard') => {
+    setAspectRatio(newRatio);
+  };
+
+  // Calculate camera dimensions based on aspect ratio and screen size
+  const getCameraContainerStyle = () => {
+    const { width, height } = screenDimensions;
+    const maxHeight = height - 200; // Leave space for controls
+    
+    if (aspectRatio === 'square') {
+      // For square, use the smaller dimension
+      const size = Math.min(width, maxHeight);
+      return {
+        width: size,
+        height: size,
+        overflow: 'hidden' as const
+      };
+    } else {
+      // For 4:3 (standard)
+      const targetHeight = width / ASPECT_RATIOS[aspectRatio];
+      const containerHeight = Math.min(targetHeight, maxHeight);
+      const containerWidth = containerHeight * ASPECT_RATIOS[aspectRatio];
+      
+      return {
+        width: containerWidth,
+        height: containerHeight,
+        overflow: 'hidden' as const
+      };
+    }
+  };
+
   return (
     <>
       <Stack.Screen 
@@ -177,12 +267,20 @@ export default function GarmentCameraScreen() {
         ) : (
           // Camera view
           <>
-            <CameraView
-              ref={cameraRef}
-              style={styles.camera}
-              facing={cameraType}
-              flash={flash}
-            />
+            {/* Camera container with aspect ratio */}
+            <View style={styles.cameraOuterContainer}>
+              <View style={[
+                styles.cameraContainer, 
+                getCameraContainerStyle()
+              ]}>
+                <CameraView
+                  ref={cameraRef}
+                  style={styles.camera}
+                  facing={cameraType}
+                  flash={flash}
+                />
+              </View>
+            </View>
             
             <SafeAreaView style={styles.controls}>
               <View style={styles.topControls}>
@@ -192,33 +290,52 @@ export default function GarmentCameraScreen() {
                 >
                   <Ionicons name="close" size={24} color="white" />
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.controlButton}
-                  onPress={toggleFlash}
-                >
-                  <Ionicons 
-                    name={flash === 'on' ? 'flash' : 'flash-off'} 
-                    size={24} 
-                    color="white" 
-                  />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.controlButton}
-                  onPress={toggleCameraFacing}
-                >
-                  <Ionicons name="camera-reverse" size={24} color="white" />
-                </TouchableOpacity>
               </View>
               
-              <View style={styles.bottomControls}>
-                <TouchableOpacity 
-                  style={styles.captureButton}
-                  onPress={takePicture}
-                >
-                  <View style={styles.captureButtonInner} />
-                </TouchableOpacity>
+              <View style={styles.bottomSection}>
+                {/* Aspect Ratio Controls - Now placed just above bottom controls */}
+                <View style={styles.aspectRatioControls}>
+                  <TouchableOpacity 
+                    style={[styles.aspectRatioPill, aspectRatio === 'square' && styles.aspectRatioPillSelected]}
+                    onPress={() => changeAspectRatio('square')}
+                  >
+                    <Text style={[styles.aspectRatioText, aspectRatio === 'square' && styles.aspectRatioTextSelected]}>Square</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.aspectRatioPill, aspectRatio === 'standard' && styles.aspectRatioPillSelected]}
+                    onPress={() => changeAspectRatio('standard')}
+                  >
+                    <Text style={[styles.aspectRatioText, aspectRatio === 'standard' && styles.aspectRatioTextSelected]}>Standard</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.bottomControls}>
+                  <TouchableOpacity 
+                    style={styles.controlButton}
+                    onPress={toggleFlash}
+                  >
+                    <Ionicons 
+                      name={flash === 'on' ? 'flash' : 'flash-off'} 
+                      size={24} 
+                      color="white" 
+                    />
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.captureButton}
+                    onPress={takePicture}
+                  >
+                    <View style={styles.captureButtonInner} />
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.controlButton}
+                    onPress={toggleCameraFacing}
+                  >
+                    <Ionicons name="camera-reverse" size={24} color="white" />
+                  </TouchableOpacity>
+                </View>
               </View>
             </SafeAreaView>
           </>
@@ -231,6 +348,15 @@ export default function GarmentCameraScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'black',
+  },
+  cameraOuterContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'black',
+  },
+  cameraContainer: {
     backgroundColor: 'black',
   },
   camera: {
@@ -246,18 +372,52 @@ const styles = StyleSheet.create({
   },
   topControls: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     padding: 16,
+    marginTop: Platform.OS === 'ios' ? 40 : 16,
+  },
+  bottomSection: {
+    // Container for both aspect ratio controls and bottom controls
+    marginBottom: Platform.OS === 'ios' ? 40 : 20,
+  },
+  aspectRatioControls: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  aspectRatioPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    marginHorizontal: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  aspectRatioPillSelected: {
+    backgroundColor: '#00FF77',
+    borderColor: '#00FF77',
+  },
+  aspectRatioText: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: 'RobotoMono-Regular',
+  },
+  aspectRatioTextSelected: {
+    color: 'black',
+    fontWeight: 'bold',
   },
   bottomControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingHorizontal: 30,
   },
   controlButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -289,8 +449,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    paddingBottom: 40,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
   },
   backButton: {
     width: 44,
@@ -302,26 +462,24 @@ const styles = StyleSheet.create({
   },
   confirmButton: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    borderRadius: 20,
     backgroundColor: '#00FF77',
-    borderRadius: 8,
   },
   confirmText: {
     color: 'black',
-    fontFamily: 'RobotoMono-Regular',
     fontWeight: 'bold',
     fontSize: 16,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingText: {
     color: 'white',
-    fontFamily: 'RobotoMono-Regular',
-    marginTop: 16,
+    marginTop: 10,
     fontSize: 16,
   },
 }); 
