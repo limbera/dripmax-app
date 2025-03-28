@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, Alert, Platform, ActionSheetIOS, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, Alert, Platform, ActionSheetIOS, SafeAreaView, StatusBar, ScrollView } from 'react-native';
 import { useColorScheme } from '../../../hooks/useColorScheme';
 import { Colors } from '../../../constants/Colors';
 import { useAuth } from '../../../hooks/useAuth';
@@ -146,7 +146,6 @@ export default function SettingsScreen() {
       <StatusBar barStyle="light-content" backgroundColor="black" />
       <Stack.Screen 
         options={{
-          title: 'Settings',
           headerStyle: {
             backgroundColor: 'black',
           },
@@ -164,12 +163,13 @@ export default function SettingsScreen() {
           ),
         }}
       />
-      <Text style={styles.pageTitle}>Settings</Text>
       
-      <View style={[
-        styles.container,
-        { backgroundColor: 'black' }
-      ]}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <Text style={styles.pageTitle}>Settings</Text>
+        
         <View style={styles.buttonsContainer}>
           <TouchableOpacity
             style={styles.button}
@@ -239,7 +239,7 @@ export default function SettingsScreen() {
         <Text style={styles.versionText}>
           Version 1.0.0
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -251,11 +251,15 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: 'black',
   },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 16,
+    paddingBottom: 30,
+  },
   buttonsContainer: {
-    marginTop: 16,
+    marginTop: 8,
   },
   button: {
     flexDirection: 'row',
@@ -312,7 +316,6 @@ const styles = StyleSheet.create({
     color: 'white',
     marginTop: 16,
     marginBottom: 16,
-    marginLeft: 16,
     fontFamily: 'RobotoMono-Regular',
   },
 }); 

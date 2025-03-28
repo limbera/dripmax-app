@@ -26,10 +26,11 @@ type AddPieceItem = {
 // Union type for all items that can appear in the grid
 type GridItem = Garment | AddPieceItem;
 
-const { width } = Dimensions.get('window');
-const COLUMN_COUNT = 3;
-const ITEM_MARGIN = 4;
-const ITEM_WIDTH = (width - (2 * 16) - (ITEM_MARGIN * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
+// Constants for grid layout
+const COLUMN_COUNT = 2;
+const ITEM_MARGIN = 8;
+const screenWidth = Dimensions.get('window').width;
+const ITEM_WIDTH = (screenWidth - (2 * 16) - (COLUMN_COUNT - 1) * ITEM_MARGIN) / COLUMN_COUNT;
 
 export default function WardrobeScreen() {
   const router = useRouter();
@@ -155,8 +156,6 @@ export default function WardrobeScreen() {
         }} 
       />
       
-      <Text style={styles.pageTitle}>Wardrobe</Text>
-      
       <View style={styles.container}>
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
@@ -170,6 +169,9 @@ export default function WardrobeScreen() {
               keyExtractor={item => item.id}
               numColumns={COLUMN_COUNT}
               contentContainerStyle={styles.listContent}
+              ListHeaderComponent={
+                <Text style={styles.pageTitle}>Wardrobe</Text>
+              }
               refreshControl={
                 <RefreshControl 
                   refreshing={refreshing} 
@@ -210,9 +212,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingTop: 8,
+    paddingTop: 0,
     paddingBottom: 30,
-    flexGrow: 1,
   },
   garmentItem: {
     width: ITEM_WIDTH,
@@ -323,7 +324,6 @@ const styles = StyleSheet.create({
     color: 'white',
     marginTop: 16,
     marginBottom: 16,
-    marginLeft: 16,
     fontFamily: 'RobotoMono-Regular',
   },
 }); 

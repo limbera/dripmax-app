@@ -111,8 +111,8 @@ export default function ProtectedLayout() {
         name="camera"
         options={{
           title: 'Take Photo',
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
+          presentation: 'card',
+          animation: 'slide_from_right',
         }}
       />
       <Stack.Screen
@@ -137,8 +137,8 @@ export default function ProtectedLayout() {
         name="garments/camera"
         options={{
           headerShown: false,
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
+          presentation: 'card',
+          animation: 'slide_from_right',
         }}
       />
       <Stack.Screen

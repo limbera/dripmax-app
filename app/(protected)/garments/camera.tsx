@@ -8,12 +8,14 @@ import {
   ActivityIndicator, 
   Alert,
   StatusBar,
-  SafeAreaView
+  SafeAreaView,
+  Platform
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { createGarment } from '../../../services/supabase';
 
 export default function GarmentCameraScreen() {
@@ -62,6 +64,37 @@ export default function GarmentCameraScreen() {
     }
   };
 
+  // Function to pick image from gallery
+  const pickImage = async () => {
+    try {
+      // Request permission if needed
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photo library to select images.'
+        );
+        return;
+      }
+      
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        // Set the captured image state with the picked image
+        setCapturedImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image from gallery.');
+    }
+  };
+
   // Save the garment to Supabase
   const saveGarment = async () => {
     if (!capturedImage) return;
@@ -97,7 +130,7 @@ export default function GarmentCameraScreen() {
 
   // Go back to garments list
   const goBack = () => {
-    router.replace('/(protected)/(tabs)/wardrobe');
+    router.back();
   };
 
   return (
@@ -148,17 +181,11 @@ export default function GarmentCameraScreen() {
               flash={flash}
             />
             
-            <SafeAreaView style={styles.controls}>
+            <View style={styles.cameraControls}>
+              {/* Top row controls */}
               <View style={styles.topControls}>
                 <TouchableOpacity 
-                  style={styles.controlButton}
-                  onPress={goBack}
-                >
-                  <Ionicons name="close" size={24} color="white" />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.controlButton}
+                  style={styles.circleButton} 
                   onPress={toggleFlash}
                 >
                   <Ionicons 
@@ -167,24 +194,41 @@ export default function GarmentCameraScreen() {
                     color="white" 
                   />
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity 
-                  style={styles.controlButton}
-                  onPress={toggleCameraFacing}
+                  style={styles.circleButton} 
+                  onPress={goBack}
                 >
-                  <Ionicons name="camera-reverse" size={24} color="white" />
+                  <Ionicons name="close" size={28} color="white" />
                 </TouchableOpacity>
               </View>
               
+              {/* Bottom row controls */}
               <View style={styles.bottomControls}>
                 <TouchableOpacity 
-                  style={styles.captureButton}
-                  onPress={takePicture}
+                  style={styles.circleButton}
+                  onPress={pickImage}
                 >
-                  <View style={styles.captureButtonInner} />
+                  <Ionicons name="images-outline" size={24} color="white" />
+                </TouchableOpacity>
+
+                <View style={styles.captureContainer}>
+                  <TouchableOpacity 
+                    style={styles.captureButton}
+                    onPress={takePicture}
+                  >
+                    <View style={styles.captureButtonInner} />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity 
+                  style={styles.circleButton}
+                  onPress={toggleCameraFacing}
+                >
+                  <Ionicons name="sync-outline" size={24} color="white" />
                 </TouchableOpacity>
               </View>
-            </SafeAreaView>
+            </View>
           </>
         )}
       </View>
@@ -200,43 +244,58 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
   },
-  controls: {
+  cameraControls: {
+    flex: 1,
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: 'transparent',
+    flexDirection: 'column',
     justifyContent: 'space-between',
+    paddingVertical: Platform.OS === 'ios' ? 50 : 20,
   },
   topControls: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 16,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    width: '100%',
   },
   bottomControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    width: '100%',
   },
-  controlButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  circleButton: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureContainer: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   captureButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    width: 75,
+    height: 75,
+    borderRadius: 100,
+    borderWidth: 4,
+    borderColor: 'white',
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   captureButtonInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 62,
+    height: 62,
+    borderRadius: 100,
     backgroundColor: 'white',
   },
   previewContainer: {

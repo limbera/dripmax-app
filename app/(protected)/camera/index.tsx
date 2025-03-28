@@ -27,6 +27,7 @@ import { nanoid } from 'nanoid/non-secure';
 import Constants from 'expo-constants';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FaceDetector from 'expo-face-detector';
+import * as ImagePicker from 'expo-image-picker';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -523,9 +524,8 @@ export default function CameraScreen() {
   };
 
   const goBackToHome = () => {
-    // Navigate back to the drips tab
-    router.replace('/(protected)/(tabs)/drips');
-    cameraLogger.info('Navigating back to drips tab');
+    router.back();
+    cameraLogger.info('Going back to previous screen');
   };
 
   // Add this function to create the scanning line animation
@@ -560,6 +560,48 @@ export default function CameraScreen() {
       animateScanLine();
     }
   }, [isAnalyzing]);
+
+  // Function to pick image from gallery
+  const pickImage = async () => {
+    try {
+      cameraLogger.info('Attempting to pick image from gallery');
+      
+      // Request permission if needed
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        cameraLogger.error('Media library permission denied');
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photo library to select images.'
+        );
+        return;
+      }
+      
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        cameraLogger.info('Image selected from gallery', { 
+          uri: result.assets[0].uri.substring(0, 20) + '...' 
+        });
+        
+        // Set the captured image state with the picked image
+        setCapturedImage(result.assets[0].uri);
+      } else {
+        cameraLogger.info('Image picker canceled');
+      }
+    } catch (error) {
+      cameraLogger.error('Error picking image from gallery', { 
+        error: error instanceof Error ? error.message : String(error)
+      });
+      Alert.alert('Error', 'Failed to select image from gallery.');
+    }
+  };
 
   // Loading state while checking permissions
   if (!permission) {
@@ -621,7 +663,7 @@ export default function CameraScreen() {
             <View style={styles.bottomControls}>
               <TouchableOpacity 
                 style={styles.circleButton}
-                onPress={() => {}}
+                onPress={pickImage}
               >
                 <Ionicons name="images-outline" size={24} color="white" />
               </TouchableOpacity>

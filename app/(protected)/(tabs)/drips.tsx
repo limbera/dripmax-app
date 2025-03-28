@@ -10,7 +10,8 @@ import {
   TouchableOpacity,
   Alert,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  Dimensions
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useColorScheme } from '../../../hooks/useColorScheme';
@@ -22,8 +23,45 @@ import { getTransformedImageUrl } from '../../../services/supabase';
 import { router } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
 
+// Get screen dimensions for grid layout
+const { width } = Dimensions.get('window');
+const COLUMN_COUNT = 3;
+const ITEM_SPACING = 4;
+const ITEM_SIZE = (width - (2 * 16) - ((COLUMN_COUNT - 1) * ITEM_SPACING)) / COLUMN_COUNT;
+
+// Function to determine rating color based on score
+const getRatingColor = (rating: number | undefined | null) => {
+  if (rating === undefined || rating === null) return '#AAAAAA'; // Gray for N/A
+  
+  // More granular color coding for scores 1-10
+  switch (Math.floor(rating)) {
+    case 10:
+      return '#00FF77'; // Bright green for perfect scores
+    case 9:
+      return '#40FF88'; // Light green
+    case 8:
+      return '#80FF99'; // Pale green
+    case 7:
+      return '#FFDD00'; // Gold
+    case 6:
+      return '#FFBB33'; // Orange-yellow
+    case 5:
+      return '#FF9933'; // Dark orange
+    case 4:
+      return '#FF6633'; // Orange-red
+    case 3:
+      return '#FF4040'; // Bright red
+    case 2:
+      return '#E62020'; // Dark red
+    case 1:
+      return '#CC0000'; // Very dark red
+    default:
+      return '#AAAAAA'; // Gray for unexpected values
+  }
+};
+
 // Function to determine progress bar color based on rating
-const getRatingColor = (rating: number) => {
+const getProgressBarColor = (rating: number) => {
   return '#00FF77'; // Changed to always return the requested color
 };
 
@@ -83,50 +121,24 @@ export default function DripsScreen() {
 
   const renderOutfitItem = ({ item }: { item: OutfitWithFeedback }) => (
     <TouchableOpacity 
-      style={[
-        styles.outfitItem,
-      ]}
+      style={styles.gridItem}
       onPress={() => navigateToOutfitDetail(item.id)}
       activeOpacity={0.7}
     >
-      {/* Horizontal layout with image on left, content on right */}
-      <View style={styles.outfitItemContent}>
-        {/* Outfit thumbnail image */}
-        <Image 
-          source={{ uri: getTransformedImageUrl(item.photourl, 70, 94) }} 
-          style={styles.outfitImage} 
-        />
-        
-        {/* Outfit details */}
-        <View style={styles.outfitDetails}>
-          {/* Rating score and timestamp in the same row */}
-          <View style={styles.scoreRow}>
-            {/* Rating score */}
-            <Text style={[styles.outfitRating, { color: 'white', fontFamily: 'RobotoMono-Regular' }]}>
-              {item.feedback?.score || 'N/A'}
-            </Text>
-            
-            {/* Timestamp formatted as relative time */}
-            <Text style={[styles.outfitDate, { color: 'white', fontFamily: 'RobotoMono-Regular' }]}>
-              {getTimeAgo(item.timestamp)}
-            </Text>
-          </View>
-          
-          {/* Progress bar */}
-          {item.feedback && (
-            <View style={styles.progressBarContainer}>
-              <View 
-                style={[
-                  styles.progressBar, 
-                  { 
-                    width: `${item.feedback.score * 10}%`, 
-                    backgroundColor: getRatingColor(item.feedback.score) 
-                  }
-                ]} 
-              />
-            </View>
-          )}
-        </View>
+      {/* Outfit image */}
+      <Image 
+        source={{ uri: getTransformedImageUrl(item.photourl, 300, 300) }} 
+        style={styles.gridItemImage} 
+      />
+      
+      {/* Rating badge overlay */}
+      <View style={styles.ratingBadge}>
+        <Text style={[
+          styles.ratingText,
+          { color: getRatingColor(item.feedback?.score) }
+        ]}>
+          {item.feedback?.score || 'N/A'}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -177,10 +189,14 @@ export default function DripsScreen() {
           styles.container,
           { backgroundColor: 'black' }
         ]}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles.gridContainer}
         data={outfits}
         renderItem={renderOutfitItem}
         keyExtractor={(item) => item.id}
+        numColumns={COLUMN_COUNT}
+        ListHeaderComponent={
+          <Text style={styles.pageTitle}>Drips</Text>
+        }
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -238,10 +254,17 @@ export default function DripsScreen() {
         }}
       />
       
-      {/* Add page title */}
-      <Text style={styles.pageTitle}>Drips</Text>
-      
       {content}
+      
+      {/* Floating Rate My Outfit button */}
+      <TouchableOpacity
+        style={styles.floatingButton}
+        onPress={navigateToCamera}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="camera-outline" size={24} color="black" style={styles.buttonIcon} />
+        <Text style={styles.rateButtonText}>RATE MY OUTFIT</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -391,7 +414,64 @@ const styles = StyleSheet.create({
     color: 'white',
     marginTop: 16,
     marginBottom: 16,
-    marginLeft: 16,
     fontFamily: 'RobotoMono-Regular',
+  },
+  gridContainer: {
+    padding: 16,
+    paddingBottom: 30,
+  },
+  gridItem: {
+    width: ITEM_SIZE,
+    height: ITEM_SIZE,
+    margin: ITEM_SPACING / 2,
+    position: 'relative',
+  },
+  gridItemImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 4,
+  },
+  ratingBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'RobotoMono-Regular',
+  },
+  floatingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00FF77',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  rateButtonText: {
+    color: 'black',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'RobotoMono-Regular',
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
 }); 
