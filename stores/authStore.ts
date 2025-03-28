@@ -218,6 +218,10 @@ export const useAuthStore = create<AuthState>()(
           options: {
             redirectTo: redirectUrl,
             skipBrowserRedirect: true,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+            },
           },
         });
 
