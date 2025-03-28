@@ -170,6 +170,15 @@ export interface Garment {
   tags: string[] | null;
   created_at: string;
   updated_at: string;
+  type: string | null;
+  brand: string | null;
+  primary_color: string | null;
+  secondary_colors: string[] | null;
+  pattern: string | null;
+  material: string | null;
+  size_range: string | null;
+  fit_style: string | null;
+  price_range: string | null;
 }
 
 /**
@@ -214,11 +223,6 @@ export const createGarment = async (imageUri: string) => {
     
     supabaseLogger.info('User authenticated', { userId: user.id });
 
-    // Generate a unique filename
-    const timestamp = new Date().getTime();
-    const fileName = `garment-${timestamp}.jpg`;
-    supabaseLogger.debug('Generated file name', { fileName });
-
     // Compress the image before uploading to reduce size
     supabaseLogger.debug('Compressing image', { imageUriStart: imageUri.substring(0, 30) });
     let compressedImage;
@@ -243,15 +247,14 @@ export const createGarment = async (imageUri: string) => {
       throw compressionError;
     }
 
-    // Read image as blob
-    supabaseLogger.debug('Converting image to blob');
-    let blob: Blob;
+    // Read image as blob and convert to base64
+    supabaseLogger.debug('Converting image to base64');
     let base64Data;
     try {
       const response = await fetch(compressedImage.uri);
-      blob = await response.blob();
+      const blob = await response.blob();
       
-      // Use FileReader to create base64 data - this approach is more reliable
+      // Use FileReader to create base64 data
       base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         
@@ -286,130 +289,41 @@ export const createGarment = async (imageUri: string) => {
       throw conversionError;
     }
 
-    // Convert base64 to binary data for upload
-    supabaseLogger.debug('Converting base64 to binary');
-    const binaryData = base64.toByteArray(base64Data);
-    
-    // Upload the binary data to Supabase
-    supabaseLogger.info('Uploading image to Supabase storage', {
-      bucket: 'garments',
-      fileSize: binaryData.length
-    });
-    
-    // Try upload with retry logic
-    let uploadAttempt = 0;
-    const maxUploadAttempts = 3;
-    let uploadResult = null;
-    
-    while (uploadAttempt < maxUploadAttempts) {
-      uploadAttempt++;
-      
-      try {
-        const { data, error } = await supabase.storage
-          .from('garments')
-          .upload(`${user.id}/${fileName}`, binaryData, {
-            contentType: 'image/jpeg',
-            upsert: true
-          });
-        
-        if (error) {
-          // Check if error contains HTML (indicating a server error)
-          const errorString = String(error);
-          if (errorString.includes('JSON Parse error') || errorString.includes('<')) {
-            supabaseLogger.error(`Supabase upload attempt ${uploadAttempt} failed with HTML response`, { 
-              error: errorString
-            });
-            
-            if (uploadAttempt < maxUploadAttempts) {
-              // Wait before retry (exponential backoff)
-              await new Promise(resolve => setTimeout(resolve, uploadAttempt * 1000));
-              continue;
-            }
-          }
-          
-          supabaseLogger.error('Supabase upload error', { error: error.message });
-          throw error;
-        }
-        
-        uploadResult = data;
-        break;
-      } catch (uploadError: any) {
-        supabaseLogger.error(`Upload attempt ${uploadAttempt} failed`, { 
-          error: uploadError instanceof Error ? uploadError.message : String(uploadError)
-        });
-        
-        if (uploadAttempt >= maxUploadAttempts) {
-          throw uploadError;
-        }
-        
-        // Wait before retry (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, uploadAttempt * 1000));
-      }
-    }
-    
-    if (!uploadResult || !uploadResult.path) {
-      throw new Error('Upload succeeded but returned no path');
-    }
-
-    // Get the public URL
-    supabaseLogger.debug('Getting public URL', { path: uploadResult.path });
-    let publicUrl;
+    // Call the analyze-garment Edge Function
+    supabaseLogger.info('Calling analyze-garment Edge Function');
     try {
-      const { data: { publicUrl: url } } = supabase.storage
-        .from('garments')
-        .getPublicUrl(uploadResult.path);
-      
-      publicUrl = url;
-      supabaseLogger.debug('Public URL retrieved', { publicUrl });
-    } catch (urlError: any) {
-      supabaseLogger.error('Failed to get public URL', { 
-        error: urlError.message, 
-        stack: urlError.stack
+      const { data, error } = await supabase.functions.invoke('analyze-garment', {
+        body: {
+          image: base64Data,
+          userId: user.id
+        }
       });
-      throw urlError;
-    }
-
-    // Create the garment record
-    supabaseLogger.info('Creating garment record in database', { 
-      userId: user.id,
-      publicUrlLength: publicUrl?.length
-    });
-    
-    let garment;
-    try {
-      const { data, error: insertError } = await supabase
-        .from('garments')
-        .insert({
-          user_id: user.id,
-          image_url: publicUrl,
-          category: 'uncategorized', // Default category
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        supabaseLogger.error('Database insert failed', { 
-          error: insertError.message,
-          details: insertError.details,
-          code: insertError.code,
-          hint: insertError.hint
+      
+      if (error) {
+        supabaseLogger.error('Edge Function error', { 
+          error: error.message,
+          status: error.status
         });
-        throw insertError;
+        throw new Error(`Edge Function error: ${error.message}`);
       }
       
-      garment = data;
-      supabaseLogger.info('Garment created successfully', { garmentId: garment?.id });
-    } catch (dbError: any) {
-      supabaseLogger.error('Database error during insert', { 
-        error: dbError.message, 
-        stack: dbError.stack,
-        code: dbError?.code,
-        hint: dbError?.hint
+      if (!data || !data.success || !data.garment) {
+        supabaseLogger.error('Edge Function returned invalid response', { data });
+        throw new Error('Failed to analyze and create garment');
+      }
+      
+      supabaseLogger.info('Garment created successfully via Edge Function', { 
+        garmentId: data.garment?.id 
       });
-      throw dbError;
+      
+      return { garment: data.garment, error: null };
+    } catch (edgeFunctionError: any) {
+      supabaseLogger.error('Edge Function call failed', { 
+        error: edgeFunctionError.message, 
+        stack: edgeFunctionError.stack
+      });
+      throw edgeFunctionError;
     }
-
-    return { garment, error: null };
   } catch (error: any) {
     supabaseLogger.error('Error creating garment - top level catch', { 
       error: error.message,

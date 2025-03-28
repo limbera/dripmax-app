@@ -9,7 +9,8 @@ import {
   Alert,
   StatusBar,
   SafeAreaView,
-  Platform
+  Platform,
+  Dimensions
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -17,6 +18,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { createGarment } from '../../../services/supabase';
+
+// Get window dimensions
+const { width, height } = Dimensions.get('window');
+// Make the frame size a rectangle that's better for clothing items
+const FRAME_WIDTH = Math.min(width, height) * 0.7;
+const FRAME_HEIGHT = FRAME_WIDTH * 1.5; // 50% taller than it is wide
 
 export default function GarmentCameraScreen() {
   const router = useRouter();
@@ -26,7 +33,7 @@ export default function GarmentCameraScreen() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const cameraRef = useRef<any>(null);
-
+  
   // Request camera permission if not granted
   if (!permission?.granted) {
     // Request permission
@@ -49,10 +56,14 @@ export default function GarmentCameraScreen() {
       try {
         const photo = await cameraRef.current.takePictureAsync();
         
-        // Compress the image to reduce size
+        // Just compress the image without cropping it to preserve the full photo
+        // The frame serves as a guide but we keep the entire image
         const compressedImage = await ImageManipulator.manipulateAsync(
           photo.uri,
-          [{ resize: { width: 1080 } }],
+          [
+            // No cropping operation, just resize to a reasonable resolution
+            { resize: { width: 1080 } }
+          ],
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
         );
         
@@ -77,11 +88,11 @@ export default function GarmentCameraScreen() {
         return;
       }
       
-      // Launch image picker
+      // Launch image picker without forcing an aspect ratio
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [1, 1],
+        // No aspect ratio constraint to allow natural photos
         quality: 0.8,
       });
       
@@ -110,11 +121,19 @@ export default function GarmentCameraScreen() {
         throw error;
       }
       
-      // Replace current screen with wardrobe tab screen with refresh flag
-      router.replace({
-        pathname: '/(protected)/(tabs)/wardrobe',
+      // Navigate back with refresh parameter
+      // We need to pass this parameter to trigger a reload in the wardrobe screen
+      router.navigate({
+        pathname: "/(protected)/(tabs)/wardrobe",
         params: { refresh: 'true' }
       });
+      
+      // Show a success message
+      Alert.alert(
+        'Garment Added',
+        'Your garment has been successfully added to your wardrobe.',
+        [{ text: 'OK' }]
+      );
     } catch (error: any) {
       console.error('Garment creation error:', error);
       Alert.alert('Error', error.message || 'Failed to save garment. Please try again.');
@@ -151,7 +170,8 @@ export default function GarmentCameraScreen() {
             {isProcessing ? (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#00FF77" />
-                <Text style={styles.loadingText}>Saving garment...</Text>
+                <Text style={styles.loadingText}>Analyzing garment with AI...</Text>
+                <Text style={styles.loadingSubtext}>This may take a moment</Text>
               </View>
             ) : (
               <SafeAreaView style={styles.previewControls}>
@@ -166,20 +186,45 @@ export default function GarmentCameraScreen() {
                   style={styles.confirmButton}
                   onPress={saveGarment}
                 >
-                  <Text style={styles.confirmText}>Save to Wardrobe</Text>
+                  <Text style={styles.confirmText}>Analyze & Save</Text>
                 </TouchableOpacity>
               </SafeAreaView>
             )}
           </View>
         ) : (
-          // Camera view
-          <>
+          // Camera view with rectangular overlay
+          <View style={styles.cameraContainer}>
             <CameraView
               ref={cameraRef}
               style={styles.camera}
               facing={cameraType}
               flash={flash}
+              zoom={0}
             />
+            
+            {/* Overlay with cutout for the rectangular frame */}
+            <View style={styles.overlay}>
+              {/* Top overlay */}
+              <View style={styles.overlaySection} />
+              
+              {/* Middle section with cutout */}
+              <View style={styles.middleSection}>
+                {/* Left overlay */}
+                <View style={styles.overlaySection} />
+                
+                {/* Transparent rectangular cutout */}
+                <View style={styles.frame}>
+                  {/* Guide text */}
+                  <Text style={styles.guideText}>Place garment in frame</Text>
+                </View>
+                
+                {/* Right overlay */}
+                <View style={styles.overlaySection} />
+              </View>
+              
+              {/* Bottom overlay */}
+              <View style={styles.overlaySection} />
+            </View>
             
             <View style={styles.cameraControls}>
               {/* Top row controls */}
@@ -229,7 +274,7 @@ export default function GarmentCameraScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-          </>
+          </View>
         )}
       </View>
     </>
@@ -241,8 +286,45 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'black',
   },
+  cameraContainer: {
+    flex: 1,
+    position: 'relative',
+  },
   camera: {
     flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'column',
+  },
+  overlaySection: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  middleSection: {
+    width: '100%',
+    height: FRAME_HEIGHT,
+    flexDirection: 'row',
+  },
+  frame: {
+    width: FRAME_WIDTH,
+    height: FRAME_HEIGHT,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.8)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    padding: 10,
+  },
+  guideText: {
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 10,
   },
   cameraControls: {
     flex: 1,
@@ -346,5 +428,11 @@ const styles = StyleSheet.create({
     fontFamily: 'RobotoMono-Regular',
     marginTop: 16,
     fontSize: 16,
+  },
+  loadingSubtext: {
+    color: '#AAAAAA',
+    fontFamily: 'RobotoMono-Regular',
+    marginTop: 8,
+    fontSize: 14,
   },
 }); 

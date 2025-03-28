@@ -262,8 +262,8 @@ export default function DripsScreen() {
         onPress={navigateToCamera}
         activeOpacity={0.8}
       >
-        <Ionicons name="camera-outline" size={24} color="black" style={styles.buttonIcon} />
-        <Text style={styles.rateButtonText}>RATE MY OUTFIT</Text>
+        <Ionicons name="star-outline" size={24} color="black" style={styles.buttonIcon} />
+        <Text style={styles.rateButtonText}>RATE OUTFIT</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

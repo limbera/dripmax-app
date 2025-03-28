@@ -10,7 +10,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { fetchGarmentById, deleteGarment, Garment } from '../../../services/supabase';
 import { getTimeAgo } from '../../../utils/timeFormatter';
 
@@ -19,10 +19,10 @@ const SectionHeader = ({
   title, 
   iconType, 
   iconName,
-  color = '#FF385C'
+  color = '#00FF77'
 }: { 
   title: string, 
-  iconType: 'Ionicons' | 'MaterialCommunityIcons' | 'Feather' | 'FontAwesome5', 
+  iconType: 'Ionicons' | 'MaterialCommunityIcons' | 'Feather' | 'FontAwesome5' | 'AntDesign', 
   iconName: string,
   color?: string
 }) => {
@@ -37,6 +37,8 @@ const SectionHeader = ({
         return <Feather name={iconName as any} size={20} color={color} />;
       case 'FontAwesome5':
         return <FontAwesome5 name={iconName as any} size={20} color={color} />;
+      case 'AntDesign':
+        return <AntDesign name={iconName as any} size={20} color={color} />;
       default:
         return null;
     }
@@ -48,6 +50,63 @@ const SectionHeader = ({
         {getIcon()}
       </View>
       <Text style={styles.sectionTitle}>{title}</Text>
+    </View>
+  );
+};
+
+// Color Dot Component for visualizing colors
+const ColorDot = ({ color, label }: { color: string, label?: string }) => (
+  <View style={styles.colorDotContainer}>
+    <View 
+      style={[
+        styles.colorDot, 
+        { backgroundColor: color.toLowerCase() }
+      ]} 
+    />
+    {label && <Text style={styles.colorLabel}>{label}</Text>}
+  </View>
+);
+
+// Collapsible Section Component
+const CollapsibleSection = ({ 
+  title, 
+  iconType, 
+  iconName,
+  children,
+  initiallyExpanded = true
+}: { 
+  title: string, 
+  iconType: 'Ionicons' | 'MaterialCommunityIcons' | 'Feather' | 'FontAwesome5' | 'AntDesign', 
+  iconName: string,
+  children: React.ReactNode,
+  initiallyExpanded?: boolean
+}) => {
+  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
+  
+  return (
+    <View style={styles.collapsibleSection}>
+      <TouchableOpacity 
+        style={styles.collapsibleHeader}
+        onPress={() => setIsExpanded(!isExpanded)}
+        activeOpacity={0.7}
+      >
+        <SectionHeader 
+          title={title}
+          iconType={iconType}
+          iconName={iconName}
+        />
+        <Ionicons 
+          name={isExpanded ? 'chevron-up' : 'chevron-down'} 
+          size={20} 
+          color="#00FF77" 
+        />
+      </TouchableOpacity>
+      
+      {isExpanded && (
+        <View style={styles.collapsibleContent}>
+          {children}
+        </View>
+      )}
     </View>
   );
 };
@@ -156,12 +215,11 @@ export default function GarmentDetailScreen() {
       <>
         <Stack.Screen 
           options={{
-            title: 'Garment Details',
-            headerTitle: () => (
-              <Text style={styles.headerTitle}>
-                Garment Details
-              </Text>
-            ),
+            title: '',
+            headerStyle: {
+              backgroundColor: 'black',
+            },
+            headerTintColor: 'white',
           }} 
         />
         <View style={styles.loadingContainer}>
@@ -178,12 +236,11 @@ export default function GarmentDetailScreen() {
       <>
         <Stack.Screen 
           options={{
-            title: 'Error',
-            headerTitle: () => (
-              <Text style={styles.headerTitle}>
-                Error
-              </Text>
-            ),
+            title: '',
+            headerStyle: {
+              backgroundColor: 'black',
+            },
+            headerTintColor: 'white',
           }} 
         />
         <View style={styles.errorContainer}>
@@ -205,12 +262,11 @@ export default function GarmentDetailScreen() {
     <>
       <Stack.Screen 
         options={{
-          title: 'Garment Details',
-          headerTitle: () => (
-            <Text style={styles.headerTitle}>
-              Garment Details
-            </Text>
-          ),
+          title: '',
+          headerStyle: {
+            backgroundColor: 'black',
+          },
+          headerTintColor: 'white',
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Ionicons 
@@ -252,44 +308,134 @@ export default function GarmentDetailScreen() {
             />
           )}
         </View>
-        
-        {/* Garment Details */}
+
         <View style={styles.detailsContainer}>
-          {/* Category */}
-          <View style={styles.section}>
-            <SectionHeader 
-              title="Category" 
-              iconType="MaterialCommunityIcons" 
-              iconName="tshirt-crew"
-              color="#00FF77"
-            />
-            <Text style={styles.sectionContent}>
-              {garment?.category || 'Uncategorized'}
-            </Text>
+          {/* Basic Garment Info */}
+          <View style={styles.basicInfoContainer}>
+            <View style={styles.garmentTypeContainer}>
+              <Text style={styles.garmentCategory}>{garment?.category?.toUpperCase() || 'UNCATEGORIZED'}</Text>
+              {garment?.type && (
+                <Text style={styles.garmentType}>{garment.type}</Text>
+              )}
+            </View>
+            
+            {garment?.brand && (
+              <View style={styles.brandBadge}>
+                <Text style={styles.brandText}>{garment.brand}</Text>
+              </View>
+            )}
           </View>
-          
+
           {/* Date Added */}
-          <View style={styles.section}>
-            <SectionHeader 
-              title="Date Added" 
-              iconType="Ionicons" 
-              iconName="calendar" 
-              color="#00FF77"
-            />
-            <Text style={styles.sectionContent}>
-              {garment?.created_at ? formatDate(garment.created_at) : 'Unknown'}
-            </Text>
-          </View>
+          <Text style={styles.dateText}>
+            Added {garment?.created_at ? formatDate(garment.created_at) : 'Unknown'}
+          </Text>
+
+          <View style={styles.divider} />
           
-          {/* Tags (if available) */}
+          {/* Colors Section */}
+          {(garment?.primary_color || garment?.secondary_colors?.length) && (
+            <CollapsibleSection 
+              title="Colors" 
+              iconType="Ionicons" 
+              iconName="color-palette" 
+            >
+              <View style={styles.colorsContainer}>
+                {garment?.primary_color && (
+                  <View style={styles.colorSection}>
+                    <ColorDot 
+                      color={garment.primary_color} 
+                      label={garment.primary_color}
+                    />
+                    <Text style={styles.colorTitle}>Primary</Text>
+                  </View>
+                )}
+                
+                {garment?.secondary_colors && garment.secondary_colors.length > 0 && (
+                  <View style={styles.colorSection}>
+                    <View style={styles.secondaryColorsRow}>
+                      {garment.secondary_colors.map((color, index) => (
+                        <ColorDot key={index} color={color} label={color} />
+                      ))}
+                    </View>
+                    <Text style={styles.colorTitle}>Secondary</Text>
+                  </View>
+                )}
+              </View>
+            </CollapsibleSection>
+          )}
+
+          {/* Appearance Section */}
+          {(garment?.pattern || garment?.material) && (
+            <CollapsibleSection 
+              title="Appearance" 
+              iconType="MaterialCommunityIcons" 
+              iconName="eye-outline" 
+            >
+              <View style={styles.appearanceContainer}>
+                {garment?.pattern && (
+                  <View style={styles.appearanceItem}>
+                    <Text style={styles.appearanceLabel}>Pattern:</Text>
+                    <Text style={styles.appearanceValue}>{garment.pattern}</Text>
+                  </View>
+                )}
+                
+                {garment?.material && (
+                  <View style={styles.appearanceItem}>
+                    <Text style={styles.appearanceLabel}>Material:</Text>
+                    <Text style={styles.appearanceValue}>{garment.material}</Text>
+                  </View>
+                )}
+              </View>
+            </CollapsibleSection>
+          )}
+
+          {/* Fit & Size Section */}
+          {(garment?.size_range || garment?.fit_style) && (
+            <CollapsibleSection 
+              title="Fit & Size" 
+              iconType="MaterialCommunityIcons" 
+              iconName="human" 
+            >
+              <View style={styles.fitSizeContainer}>
+                {garment?.size_range && (
+                  <View style={styles.fitSizeItem}>
+                    <Text style={styles.fitSizeLabel}>Size Range:</Text>
+                    <Text style={styles.fitSizeValue}>{garment.size_range}</Text>
+                  </View>
+                )}
+                
+                {garment?.fit_style && (
+                  <View style={styles.fitSizeItem}>
+                    <Text style={styles.fitSizeLabel}>Fit Style:</Text>
+                    <Text style={styles.fitSizeValue}>{garment.fit_style}</Text>
+                  </View>
+                )}
+              </View>
+            </CollapsibleSection>
+          )}
+
+          {/* Value Section */}
+          {garment?.price_range && (
+            <CollapsibleSection 
+              title="Value" 
+              iconType="FontAwesome5" 
+              iconName="money-bill-wave" 
+            >
+              <View style={styles.priceContainer}>
+                <Text style={styles.priceValue}>{garment.price_range}</Text>
+                <Text style={styles.priceLabel}>Estimated Price Range</Text>
+              </View>
+            </CollapsibleSection>
+          )}
+          
+          {/* Tags Section */}
           {garment?.tags && garment.tags.length > 0 && (
-            <View style={styles.section}>
-              <SectionHeader 
-                title="Tags" 
-                iconType="Ionicons" 
-                iconName="pricetag" 
-                color="#00FF77"
-              />
+            <CollapsibleSection 
+              title="Tags" 
+              iconType="Ionicons" 
+              iconName="pricetag" 
+            >
               <View style={styles.tagsContainer}>
                 {garment.tags.map((tag, index) => (
                   <View key={index} style={styles.tag}>
@@ -297,22 +443,7 @@ export default function GarmentDetailScreen() {
                   </View>
                 ))}
               </View>
-            </View>
-          )}
-          
-          {/* Color (if available) */}
-          {garment?.color && (
-            <View style={styles.section}>
-              <SectionHeader 
-                title="Color" 
-                iconType="Ionicons" 
-                iconName="color-palette" 
-                color="#00FF77"
-              />
-              <Text style={styles.sectionContent}>
-                {garment.color}
-              </Text>
-            </View>
+            </CollapsibleSection>
           )}
         </View>
       </ScrollView>
@@ -400,6 +531,49 @@ const styles = StyleSheet.create({
   detailsContainer: {
     padding: 16,
   },
+  basicInfoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  garmentTypeContainer: {
+    flex: 1,
+  },
+  garmentCategory: {
+    color: '#00FF77',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  garmentType: {
+    color: 'white',
+    fontFamily: 'RobotoMono-Bold',
+    fontSize: 24,
+  },
+  brandBadge: {
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginLeft: 8,
+  },
+  brandText: {
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 14,
+  },
+  dateText: {
+    color: '#999',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#333',
+    marginVertical: 16,
+  },
   section: {
     marginBottom: 24,
   },
@@ -431,7 +605,6 @@ const styles = StyleSheet.create({
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginLeft: 40,
   },
   tag: {
     backgroundColor: '#1A1A1A',
@@ -449,6 +622,110 @@ const styles = StyleSheet.create({
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  collapsibleSection: {
+    marginBottom: 16,
+    backgroundColor: '#121212',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 12,
+  },
+  collapsibleContent: {
+    padding: 16,
+    paddingTop: 0,
+  },
+  colorsContainer: {
+    marginTop: 8,
+  },
+  colorSection: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  colorTitle: {
+    color: '#999',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 14,
+    marginTop: 8,
+  },
+  secondaryColorsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  colorDotContainer: {
+    alignItems: 'center',
+    marginHorizontal: 8,
+    marginBottom: 8,
+  },
+  colorDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  colorLabel: {
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  appearanceContainer: {
+    marginTop: 8,
+  },
+  appearanceItem: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  appearanceLabel: {
+    color: '#999',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 14,
+    width: 80,
+  },
+  appearanceValue: {
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 14,
+    flex: 1,
+  },
+  fitSizeContainer: {
+    marginTop: 8,
+  },
+  fitSizeItem: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  fitSizeLabel: {
+    color: '#999',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 14,
+    width: 90,
+  },
+  fitSizeValue: {
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 14,
+    flex: 1,
+  },
+  priceContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  priceValue: {
+    color: 'white',
+    fontFamily: 'RobotoMono-Bold',
+    fontSize: 20,
+    marginBottom: 8,
+  },
+  priceLabel: {
+    color: '#999',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 14,
   },
 }); 

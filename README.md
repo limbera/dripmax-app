@@ -6,9 +6,10 @@ A React Native app that lets users take photos of their outfits and get AI ratin
 
 - Authentication with Google and Apple Sign-In via Supabase
 - Camera integration for taking outfit photos
-- AI-powered outfit rating (coming soon)
+- AI-powered outfit rating and garment analysis
 - Dark mode support
 - Outfit history tracking
+- Detailed garment analysis with category, type, brand, color and material detection
 
 ## Tech Stack
 
@@ -72,6 +73,9 @@ npm start
 - `services/` - API and service integrations
 - `stores/` - Zustand state stores
 - `constants/` - App-wide constants and configuration
+- `supabase/functions/` - Supabase Edge Functions
+  - `analyze-garment/` - Analyzes garments using OpenAI Vision
+  - `rate-outfit/` - Rates outfits using OpenAI Vision
 
 ## Authentication Flow
 
@@ -111,3 +115,24 @@ npm start
 ## License
 
 MIT
+
+## Supabase Edge Functions
+
+### analyze-garment
+
+This Edge Function analyzes garment images using OpenAI's Vision API to extract detailed information about the clothing item:
+
+- Category (Top, Bottom, Footwear, etc.)
+- Type (T-shirt, Jeans, Sneakers, etc.)
+- Brand identification
+- Primary and secondary colors
+- Pattern/design
+- Material composition
+- Size range
+- Fit style
+- Estimated price range
+
+When a user adds a new garment to their wardrobe, the function:
+1. Uploads the image to Supabase Storage
+2. Analyzes the image with OpenAI
+3. Creates a detailed garment record with all AI-derived properties

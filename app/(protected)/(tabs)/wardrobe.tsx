@@ -17,20 +17,11 @@ import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchGarments, Garment, getTransformedImageUrl } from '../../../services/supabase';
 
-// Define a type for the "Add Piece" item
-type AddPieceItem = {
-  id: string;
-  isAddPiece: true;
-};
-
-// Union type for all items that can appear in the grid
-type GridItem = Garment | AddPieceItem;
-
 // Constants for grid layout
-const COLUMN_COUNT = 2;
-const ITEM_MARGIN = 8;
+const COLUMN_COUNT = 3;
+const ITEM_MARGIN = 4;
 const screenWidth = Dimensions.get('window').width;
-const ITEM_WIDTH = (screenWidth - (2 * 16) - (COLUMN_COUNT - 1) * ITEM_MARGIN) / COLUMN_COUNT;
+const ITEM_WIDTH = (screenWidth - (2 * 16) - ((COLUMN_COUNT - 1) * ITEM_MARGIN)) / COLUMN_COUNT;
 
 export default function WardrobeScreen() {
   const router = useRouter();
@@ -93,24 +84,8 @@ export default function WardrobeScreen() {
   };
 
   // Render a single garment item
-  const renderItem = ({ item }: { item: GridItem }) => {
-    // Check if this is the special "Add Piece" item
-    if ('isAddPiece' in item) {
-      return (
-        <TouchableOpacity 
-          style={styles.dropZoneItem}
-          activeOpacity={0.7}
-          onPress={navigateToCamera}
-        >
-          <View style={styles.dropZoneContent}>
-            <Ionicons name="add-circle" size={40} color="#00FF77" />
-            <Text style={styles.dropZoneText}>Add Piece</Text>
-          </View>
-        </TouchableOpacity>
-      );
-    }
-    
-    // Otherwise, render a normal garment item
+  const renderItem = ({ item }: { item: Garment }) => {
+    // Render a normal garment item
     const originalUrl = item.image_url;
     
     return (
@@ -164,7 +139,7 @@ export default function WardrobeScreen() {
         ) : (
           <>
             <FlatList
-              data={[{ id: 'add-piece', isAddPiece: true } as AddPieceItem, ...garments]}
+              data={garments}
               renderItem={renderItem}
               keyExtractor={item => item.id}
               numColumns={COLUMN_COUNT}
@@ -190,6 +165,16 @@ export default function WardrobeScreen() {
             )}
           </>
         )}
+        
+        {/* Floating Add Piece button */}
+        <TouchableOpacity
+          style={styles.floatingButton}
+          onPress={navigateToCamera}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add-outline" size={24} color="black" style={styles.buttonIcon} />
+          <Text style={styles.addButtonText}>ADD PIECE</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -325,5 +310,32 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 16,
     fontFamily: 'RobotoMono-Regular',
+  },
+  floatingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00FF77',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  addButtonText: {
+    color: 'black',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'RobotoMono-Regular',
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
 }); 
