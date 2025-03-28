@@ -174,21 +174,25 @@ export default function GarmentCameraScreen() {
                 <Text style={styles.loadingSubtext}>This may take a moment</Text>
               </View>
             ) : (
-              <SafeAreaView style={styles.previewControls}>
+              <View style={styles.confirmationOverlay}>
                 <TouchableOpacity 
-                  style={styles.backButton}
+                  style={styles.closeButton}
                   onPress={retakePicture}
                 >
-                  <Ionicons name="arrow-back" size={24} color="white" />
+                  <Ionicons name="close" size={28} color="white" />
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
-                  style={styles.confirmButton}
+                  style={styles.fullWidthButton}
                   onPress={saveGarment}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.confirmText}>Analyze & Save</Text>
+                  <Text style={styles.confirmButtonText}>NEXT</Text>
+                  <View style={styles.arrowIconContainer}>
+                    <Ionicons name="chevron-forward-outline" size={24} color="black" />
+                  </View>
                 </TouchableOpacity>
-              </SafeAreaView>
+              </View>
             )}
           </View>
         ) : (
@@ -382,40 +386,52 @@ const styles = StyleSheet.create({
   },
   previewContainer: {
     flex: 1,
+    backgroundColor: 'black',
   },
   preview: {
     flex: 1,
+    width: '100%',
+    height: '100%',
   },
-  previewControls: {
+  confirmationOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    justifyContent: 'flex-end',
+    paddingBottom: 50,
+  },
+  closeButton: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    paddingBottom: 40,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    top: 50,
+    right: 20,
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  confirmButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+  fullWidthButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#00FF77',
-    borderRadius: 8,
+    paddingVertical: 20,
+    paddingHorizontal: 30,
+    borderRadius: 50,
+    marginHorizontal: 20,
+    marginTop: 24,
+    position: 'relative',
   },
-  confirmText: {
+  confirmButtonText: {
     color: 'black',
-    fontFamily: 'RobotoMono-Regular',
+    fontSize: 20,
     fontWeight: 'bold',
-    fontSize: 16,
+    fontFamily: 'RobotoMono-Regular',
+    textAlign: 'center',
+  },
+  arrowIconContainer: {
+    position: 'absolute',
+    right: 20,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

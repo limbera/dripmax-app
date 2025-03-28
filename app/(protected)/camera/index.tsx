@@ -637,6 +637,30 @@ export default function CameraScreen() {
           // @ts-ignore
           ref={cameraRef}
         >
+          {/* Frame overlay */}
+          <View style={styles.frameOverlay}>
+            {/* Top overlay */}
+            <View style={styles.overlaySection} />
+            
+            {/* Middle section with cutout */}
+            <View style={styles.middleSection}>
+              {/* Left overlay */}
+              <View style={styles.overlaySection} />
+              
+              {/* Transparent rectangular cutout */}
+              <View style={styles.frame}>
+                {/* Guide text */}
+                <Text style={styles.guideText}>Strike a pose!</Text>
+              </View>
+              
+              {/* Right overlay */}
+              <View style={styles.overlaySection} />
+            </View>
+            
+            {/* Bottom overlay */}
+            <View style={styles.overlaySection} />
+          </View>
+          
           <View style={styles.cameraControls}>
             {/* Top row controls */}
             <View style={styles.topControls}>
@@ -1031,5 +1055,50 @@ const styles = StyleSheet.create({
     width: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  frameOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'column',
+  },
+  overlaySection: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  middleSection: {
+    width: '100%',
+    height: SCREEN_WIDTH * 1.4,
+    flexDirection: 'row',
+  },
+  frame: {
+    width: SCREEN_WIDTH * 0.7,
+    height: SCREEN_WIDTH * 1.4,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.8)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    padding: 10,
+  },
+  guideText: {
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 14,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  poseText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#00FF77',
   },
 }); 
