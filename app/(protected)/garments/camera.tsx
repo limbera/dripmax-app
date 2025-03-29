@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { createGarment } from '../../../services/supabase';
+import ActionButton from '../../../components/ActionButton';
 
 // Get window dimensions
 const { width, height } = Dimensions.get('window');
@@ -182,16 +183,13 @@ export default function GarmentCameraScreen() {
                   <Ionicons name="close" size={28} color="white" />
                 </TouchableOpacity>
                 
-                <TouchableOpacity 
-                  style={styles.fullWidthButton}
+                <ActionButton
+                  label="NEXT"
                   onPress={saveGarment}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.confirmButtonText}>NEXT</Text>
-                  <View style={styles.arrowIconContainer}>
-                    <Ionicons name="chevron-forward-outline" size={24} color="black" />
-                  </View>
-                </TouchableOpacity>
+                  animation="chevron-sequence"
+                  icon="chevron"
+                  style={styles.fullWidthButton}
+                />
               </View>
             )}
           </View>

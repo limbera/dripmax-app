@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getTransformedImageUrl } from '../../../services/supabase';
 import { router } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
+import ActionButton from '../../../components/ActionButton';
 
 // Get screen dimensions for grid layout
 const { width } = Dimensions.get('window');
@@ -195,7 +196,7 @@ export default function DripsScreen() {
         keyExtractor={(item) => item.id}
         numColumns={COLUMN_COUNT}
         ListHeaderComponent={
-          <Text style={styles.pageTitle}>Drips</Text>
+          <Text style={styles.pageTitle}>Outfit Analysis</Text>
         }
         refreshControl={
           <RefreshControl
@@ -207,22 +208,15 @@ export default function DripsScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyStateContainer}>
-            <Text style={styles.emptyTitle}>
-              No drips yet
-            </Text>
-            <Text style={styles.emptyText}>
-              Take photos of your outfits to get ratings and feedback
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyStateButton}
-              onPress={navigateToCamera}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.emptyStateButtonText}>TAKE A PHOTO</Text>
-              <View style={styles.emptyStateIconContainer}>
-                <Ionicons name="chevron-forward-outline" size={24} color="black" />
-              </View>
-            </TouchableOpacity>
+            <View style={styles.emptyStateCard}>
+              <Image 
+                source={require('../../../assets/images/drips-empty-state.png')} 
+                style={styles.emptyStateImage}
+              />
+              <Text style={styles.emptyStateText}>
+                Get your ratings and recommendations
+              </Text>
+            </View>
           </View>
         }
       />
@@ -256,15 +250,13 @@ export default function DripsScreen() {
       
       {content}
       
-      {/* Floating Rate My Outfit button */}
-      <TouchableOpacity
-        style={styles.floatingButton}
+      {/* Floating Begin Scan button */}
+      <ActionButton
+        label="BEGIN SCAN"
         onPress={navigateToCamera}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="star-outline" size={24} color="black" style={styles.buttonIcon} />
-        <Text style={styles.rateButtonText}>RATE OUTFIT</Text>
-      </TouchableOpacity>
+        animation="chevron-sequence"
+        style={styles.floatingButton}
+      />
     </SafeAreaView>
   );
 }
@@ -361,60 +353,76 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   emptyStateContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 60,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
-  emptyTitle: {
+  emptyStateCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    overflow: 'hidden',
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#00FF77',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  emptyStateImage: {
+    width: '100%',
+    height: 300,
+    resizeMode: 'contain',
+  },
+  emptyStateText: {
+    color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
-    marginTop: 16,
-    marginBottom: 8,
     fontFamily: 'RobotoMono-Regular',
     textAlign: 'center',
+    marginTop: 24,
+    marginBottom: 12,
   },
-  emptyText: {
-    textAlign: 'center',
-    fontSize: 16,
-    marginBottom: 32,
-    fontFamily: 'RobotoMono-Regular',
+  pageTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
     color: 'white',
-    opacity: 0.8,
+    marginTop: 24,
+    marginBottom: 24,
+    fontFamily: 'RobotoMono-Regular',
+    textAlign: 'left',
+    paddingLeft: 8,
   },
-  emptyStateButton: {
+  floatingButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#00FF77',
-    paddingVertical: 20,
-    paddingHorizontal: 30,
-    borderRadius: 50,
-    marginTop: 24,
-    width: '100%',
-    position: 'relative',
-  },
-  emptyStateButtonText: {
-    color: 'black',
-    fontSize: 20,
-    fontWeight: 'bold',
-    fontFamily: 'RobotoMono-Regular',
-    textAlign: 'center',
-  },
-  emptyStateIconContainer: {
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 30,
     position: 'absolute',
-    right: 20,
+    bottom: 30,
+    left: 30,
+    right: 30,
+    shadowColor: '#00FF77',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
-  pageTitle: {
-    fontSize: 28,
+  rateButtonText: {
+    color: 'black',
+    fontSize: 18,
     fontWeight: 'bold',
-    color: 'white',
-    marginTop: 16,
-    marginBottom: 16,
     fontFamily: 'RobotoMono-Regular',
+  },
+  buttonIcon: {
+    marginLeft: 8,
   },
   gridContainer: {
     padding: 16,
@@ -446,32 +454,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     fontFamily: 'RobotoMono-Regular',
-  },
-  floatingButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#00FF77',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 30,
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  rateButtonText: {
-    color: 'black',
-    fontSize: 16,
-    fontWeight: 'bold',
-    fontFamily: 'RobotoMono-Regular',
-  },
-  buttonIcon: {
-    marginRight: 8,
   },
 }); 

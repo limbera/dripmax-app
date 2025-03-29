@@ -28,6 +28,7 @@ import Constants from 'expo-constants';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FaceDetector from 'expo-face-detector';
 import * as ImagePicker from 'expo-image-picker';
+import ActionButton from '../../../components/ActionButton';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -823,15 +824,13 @@ export default function CameraScreen() {
         </View>
       </View>
       
-      <TouchableOpacity 
-        style={styles.analyzeButton}
+      <ActionButton
+        label="NEXT"
         onPress={analyzeDrip}
-      >
-        <View style={styles.iconContainer}>
-          <Ionicons name="chevron-forward-outline" size={24} color="black" />
-        </View>
-        <Text style={styles.analyzeText}>NEXT</Text>
-      </TouchableOpacity>
+        animation="chevron-sequence"
+        icon="chevron"
+        style={styles.analyzeButton}
+      />
     </View>
   );
 }

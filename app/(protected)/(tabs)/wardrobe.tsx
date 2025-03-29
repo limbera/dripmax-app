@@ -16,6 +16,7 @@ import {
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchGarments, Garment, getTransformedImageUrl } from '../../../services/supabase';
+import ActionButton from '../../../components/ActionButton';
 
 // Constants for grid layout
 const COLUMN_COUNT = 3;
@@ -123,9 +124,20 @@ export default function WardrobeScreen() {
       <Stack.Screen 
         options={{
           title: 'Wardrobe',
+          headerLargeTitle: false,
+          headerStyle: {
+            backgroundColor: 'black',
+          },
+          headerTintColor: 'white',
           headerTitle: () => (
-            <Text style={styles.headerTitle}>
-              Wardrobe
+            <Text style={{
+              fontFamily: 'RobotoMono',
+              fontWeight: 'bold',
+              fontStyle: 'italic',
+              color: '#00FF77',
+              fontSize: 24,
+            }}>
+              dripmax
             </Text>
           ),
         }} 
@@ -137,44 +149,51 @@ export default function WardrobeScreen() {
             <ActivityIndicator size="large" color="#00FF77" />
           </View>
         ) : (
-          <>
-            <FlatList
-              data={garments}
-              renderItem={renderItem}
-              keyExtractor={item => item.id}
-              numColumns={COLUMN_COUNT}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={
-                <Text style={styles.pageTitle}>Wardrobe</Text>
-              }
-              refreshControl={
-                <RefreshControl 
-                  refreshing={refreshing} 
-                  onRefresh={onRefresh}
-                  tintColor="#00FF77"
-                />
-              }
-              ListEmptyComponent={null} // We don't need a separate empty component anymore
-            />
-            
-            {/* Show info card only when fewer than 3 garments */}
-            {garments.length < 3 && (
-              <View style={styles.infoCardContainer}>
-                {renderInfoCard()}
+          <FlatList
+            style={[
+              styles.container,
+              { backgroundColor: 'black' }
+            ]}
+            contentContainerStyle={styles.gridContainer}
+            data={garments}
+            renderItem={renderItem}
+            keyExtractor={item => item.id}
+            numColumns={COLUMN_COUNT}
+            ListHeaderComponent={
+              <Text style={styles.pageTitle}>Wardrobe</Text>
+            }
+            refreshControl={
+              <RefreshControl 
+                refreshing={refreshing} 
+                onRefresh={onRefresh}
+                tintColor="#00FF77"
+                colors={['#00FF77']}
+              />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyStateContainer}>
+                <View style={styles.emptyStateCard}>
+                  <Image 
+                    source={require('../../../assets/images/wardrobe-empty-state.png')} 
+                    style={styles.emptyStateImage}
+                  />
+                  <Text style={styles.emptyStateText}>
+                    Add pieces to your wardrobe
+                  </Text>
+                </View>
               </View>
-            )}
-          </>
+            }
+          />
         )}
         
         {/* Floating Add Piece button */}
-        <TouchableOpacity
-          style={styles.floatingButton}
+        <ActionButton
+          label="ADD PIECE"
           onPress={navigateToCamera}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add-outline" size={24} color="black" style={styles.buttonIcon} />
-          <Text style={styles.addButtonText}>ADD PIECE</Text>
-        </TouchableOpacity>
+          animation="double-pulse"
+          icon="plus"
+          style={styles.floatingButton}
+        />
       </View>
     </SafeAreaView>
   );
@@ -183,6 +202,7 @@ export default function WardrobeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    position: 'relative',
     backgroundColor: 'black',
   },
   container: {
@@ -195,9 +215,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 18,
   },
-  listContent: {
+  gridContainer: {
     padding: 16,
-    paddingTop: 0,
     paddingBottom: 30,
   },
   garmentItem: {
@@ -219,67 +238,76 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyStateContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 60,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
-  emptyTitle: {
+  emptyStateCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    overflow: 'hidden',
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#00FF77',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  emptyStateImage: {
+    width: '100%',
+    height: 300,
+    resizeMode: 'contain',
+  },
+  emptyStateText: {
+    color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
-    marginTop: 16,
-    marginBottom: 8,
     fontFamily: 'RobotoMono-Regular',
     textAlign: 'center',
+    marginTop: 24,
+    marginBottom: 12,
   },
-  emptyText: {
-    textAlign: 'center',
-    fontSize: 16,
-    marginBottom: 32,
-    fontFamily: 'RobotoMono-Regular',
+  pageTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
     color: 'white',
-    opacity: 0.8,
+    marginTop: 24,
+    marginBottom: 24,
+    fontFamily: 'RobotoMono-Regular',
+    textAlign: 'left',
+    paddingLeft: 8,
   },
-  emptyStateButton: {
+  floatingButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
     backgroundColor: '#00FF77',
-    borderRadius: 8,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    position: 'absolute',
+    bottom: 30,
+    left: 30,
+    right: 30,
+    shadowColor: '#00FF77',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
-  emptyButtonText: {
+  addButtonText: {
+    color: 'black',
     fontSize: 16,
     fontWeight: 'bold',
-    color: 'black',
-    marginLeft: 8,
     fontFamily: 'RobotoMono-Regular',
   },
-  dropZoneItem: {
-    width: ITEM_WIDTH,
-    height: ITEM_WIDTH,
-    margin: ITEM_MARGIN,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#1A1A1A',
-    borderWidth: 2,
-    borderColor: '#333',
-    borderStyle: 'dashed',
-  },
-  dropZoneContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dropZoneText: {
-    color: 'white',
-    marginTop: 8,
-    fontSize: 14,
-    fontFamily: 'RobotoMono-Regular',
+  buttonIcon: {
+    marginRight: 8,
   },
   infoCardContainer: {
     padding: 16,
@@ -302,40 +330,5 @@ const styles = StyleSheet.create({
     fontFamily: 'RobotoMono-Regular',
     flex: 1,
     opacity: 0.9,
-  },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: 'white',
-    marginTop: 16,
-    marginBottom: 16,
-    fontFamily: 'RobotoMono-Regular',
-  },
-  floatingButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#00FF77',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 30,
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  addButtonText: {
-    color: 'black',
-    fontSize: 16,
-    fontWeight: 'bold',
-    fontFamily: 'RobotoMono-Regular',
-  },
-  buttonIcon: {
-    marginRight: 8,
   },
 }); 
