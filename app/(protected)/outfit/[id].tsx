@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useLayoutEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator, Alert, ActionSheetIOS, Platform, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator, Alert, ActionSheetIOS, Platform, Animated, Easing, Share, Modal, StatusBar } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { useColorScheme } from '../../../hooks/useColorScheme';
@@ -7,18 +7,21 @@ import { Colors } from '../../../constants/Colors';
 import { useOutfitStore } from '../../../stores/outfitStore';
 import { outfitLogger } from '../../../utils/logger';
 import { getTransformedImageUrl, supabase } from '../../../services/supabase';
+import ViewShot from 'react-native-view-shot';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
 
 // Score labels based on rating
 const SCORE_LABELS = {
-  1: 'Delete Account Immediately',
-  2: 'Eyes Bleeding Send Help',
-  3: 'Who Did This To You??',
-  4: 'Emotional Damage x100',
-  5: 'Mid + Ratio + No Drip',
-  6: 'The Effort Was There...',
-  7: 'Starting To Get Iconic',
-  8: 'Absolutely Slaying FR',
-  9: 'Main Character Moment',
+  1: 'Fashion Emergency',
+  2: 'Needs Work ASAP',
+  3: 'Back to Basics',
+  4: 'Almost There...',
+  5: 'Midway to Style',
+  6: 'The Effort Was...',
+  7: 'Getting Iconic',
+  8: 'Absolutely Slaying',
+  9: 'Main Character',
   10: 'God Tier No Notes'
 } as const;
 
@@ -62,39 +65,37 @@ const getRatingColor = (rating: number | undefined | null) => {
   }
 };
 
+// Function to get descriptive text for a score
+const getScoreDescription = (score: number) => {
+  // Ensure score is within valid range
+  const validScore = Math.min(Math.max(score, 0), 10);
+  
+  if (validScore >= 9.5) return "LEGENDARY";
+  if (validScore >= 8.5) return "EXCELLENT";
+  if (validScore >= 7.5) return "GREAT";
+  if (validScore >= 6.5) return "GOOD";
+  if (validScore >= 5.5) return "DECENT";
+  if (validScore >= 4.5) return "AVERAGE";
+  if (validScore >= 3.5) return "FAIR";
+  if (validScore >= 2.5) return "POOR";
+  if (validScore >= 1.5) return "BAD";
+  if (validScore >= 0.5) return "TERRIBLE";
+  return "N/A";
+};
+
 // Component for a section header with icon
 const SectionHeader = ({ 
   title, 
-  iconType, 
-  iconName,
-  color = '#FF385C'
+  emoji,
+  color = '#00FF77'
 }: { 
   title: string, 
-  iconType: 'Ionicons' | 'MaterialCommunityIcons' | 'Feather' | 'FontAwesome5', 
-  iconName: string,
+  emoji: string,
   color?: string
 }) => {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  
-  const getIcon = () => {
-    switch (iconType) {
-      case 'Ionicons':
-        return <Ionicons name={iconName as any} size={18} color={color} style={styles.sectionIcon} />;
-      case 'MaterialCommunityIcons':
-        return <MaterialCommunityIcons name={iconName as any} size={18} color={color} style={styles.sectionIcon} />;
-      case 'Feather':
-        return <Feather name={iconName as any} size={18} color={color} style={styles.sectionIcon} />;
-      case 'FontAwesome5':
-        return <FontAwesome5 name={iconName as any} size={18} color={color} style={styles.sectionIcon} />;
-      default:
-        return <Ionicons name={iconName as any} size={18} color={color} style={styles.sectionIcon} />;
-    }
-  };
-  
   return (
     <View style={styles.sectionHeaderContainer}>
-      {getIcon()}
+      <Text style={styles.sectionHeaderEmoji}>{emoji}</Text>
       <Text style={[
         styles.sectionHeaderText,
         { color: 'white', fontFamily: 'RobotoMono-Regular' }
@@ -119,7 +120,7 @@ const TagItem = ({ label }: { label: string }) => {
 };
 
 // Component for the rating progress bar
-const RatingProgressBar = ({ rating }: { rating: number }) => {
+const RatingProgressBar = ({ rating, setDisplayedTitleScore }: { rating: number, setDisplayedTitleScore?: (score: string) => void }) => {
   // Convert rating to percentage (0-10 scale)
   const percentage = Math.min(Math.max(rating * 10, 0), 100);
   const animatedWidth = useRef(new Animated.Value(0)).current;
@@ -133,6 +134,11 @@ const RatingProgressBar = ({ rating }: { rating: number }) => {
       // Convert percentage back to score (0-10 scale)
       const currentScore = (value / 10).toFixed(1);
       setDisplayedScore(currentScore);
+      
+      // Update the title score if the setter function is provided
+      if (setDisplayedTitleScore) {
+        setDisplayedTitleScore(currentScore);
+      }
     });
     
     Animated.parallel([
@@ -140,14 +146,14 @@ const RatingProgressBar = ({ rating }: { rating: number }) => {
       Animated.timing(animatedWidth, {
         toValue: percentage,
         duration: 2000, // 2 seconds
-        easing: Easing.bezier(0.5, 0, 0, 1), // Very fast start, very slow finish
+        easing: Easing.bezier(0.5, 0, 0.005, 1), // Maximum possible slowdown at the end
         useNativeDriver: false,
       }),
       // Animate the color (from 0 to rating value)
       Animated.timing(animatedColor, {
         toValue: rating,
         duration: 2000, // Same duration as width animation
-        easing: Easing.bezier(0.5, 0, 0, 1), // Same easing as width animation
+        easing: Easing.bezier(0.5, 0, 0.005, 1), // Same extreme easing
         useNativeDriver: false,
       })
     ]).start();
@@ -156,7 +162,7 @@ const RatingProgressBar = ({ rating }: { rating: number }) => {
     return () => {
       animatedWidth.removeAllListeners();
     };
-  }, []);
+  }, [percentage, rating, setDisplayedTitleScore]);
   
   // Interpolate color based on current animated score
   const backgroundColor = animatedColor.interpolate({
@@ -218,6 +224,80 @@ const RatingProgressBar = ({ rating }: { rating: number }) => {
   );
 };
 
+// Component for a sub-score indicator with short description and score number
+const SubScoreIndicator = ({ 
+  icon, 
+  label, 
+  description, 
+  score,
+  onPress,
+  expanded,
+  analysisText
+}: { 
+  icon: string, 
+  label: string, 
+  description: string, 
+  score: number,
+  onPress?: () => void,
+  expanded?: boolean,
+  analysisText?: string
+}) => {
+  // Function to get the first sentence of the analysis text
+  const getFirstSentence = (text: string) => {
+    if (!text) return "";
+    // Match up to the first period followed by a space or end of string
+    const match = text.match(/^.*?\.(?:\s|$)/);
+    if (match) {
+      return match[0].trim();
+    }
+    // If no period found, return first 60 chars with ellipsis
+    return text.length > 60 ? text.substring(0, 60).trim() + "..." : text.trim();
+  };
+
+  return (
+    <View>
+      <TouchableOpacity 
+        style={styles.subScoreRow}
+        onPress={onPress}
+        activeOpacity={onPress ? 0.7 : 1}
+      >
+        <View style={styles.subScoreTextColumn}>
+          <View style={styles.labelRow}>
+            <Text style={styles.subScoreEmoji}>{icon}</Text>
+            <Text style={styles.subScoreLabel}>{label}</Text>
+            {onPress && (
+              <Ionicons 
+                name={expanded ? "chevron-up" : "chevron-down"} 
+                size={16} 
+                color="white" 
+                style={styles.expandIcon}
+              />
+            )}
+          </View>
+          {!expanded && (
+            <Text 
+              style={styles.subScoreDescription}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {analysisText ? getFirstSentence(analysisText) : description}
+            </Text>
+          )}
+        </View>
+        <View style={styles.subScoreRightColumn}>
+          <Text style={styles.subScoreNumber}>{score.toFixed(1)}</Text>
+        </View>
+      </TouchableOpacity>
+      
+      {expanded && analysisText && (
+        <View style={styles.expandedAnalysis}>
+          <Text style={styles.expandedAnalysisText}>{analysisText}</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
 export default function OutfitDetailScreen() {
   const { id } = useLocalSearchParams();
   const outfitId = typeof id === 'string' ? id : '';
@@ -231,36 +311,36 @@ export default function OutfitDetailScreen() {
     // Set header options immediately to prevent flicker
     navigation.setOptions({
       headerBackVisible: false,
-      title: 'dripmax',
-      headerTitle: () => (
-        <Text style={{
-          fontFamily: 'RobotoMono',
-          fontWeight: 'bold',
-          fontStyle: 'italic',
-          color: '#00FF77',
-          fontSize: 24,
-        }}>
-          dripmax
-        </Text>
-      ),
+      title: 'Rating',
+      headerTitleAlign: 'center',
+      headerTitleStyle: {
+        fontFamily: 'RobotoMono-Regular',
+        fontSize: 18,
+        color: 'white',
+      },
       headerStyle: {
         backgroundColor: 'black',
       },
       headerTintColor: 'white',
       headerLeft: () => (
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.headerButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons 
             name="chevron-back" 
             size={24} 
             color="white" 
           />
-          <Text style={{ color: 'white', fontFamily: 'RobotoMono-Regular' }}>
-            Drips
-          </Text>
         </TouchableOpacity>
       ),
       headerRight: () => (
-        <TouchableOpacity onPress={showMoreOptions} style={styles.headerButton}>
+        <TouchableOpacity
+          onPress={showMoreOptions}
+          style={styles.headerButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons 
             name="ellipsis-vertical" 
             size={24} 
@@ -277,6 +357,16 @@ export default function OutfitDetailScreen() {
   
   const { getOutfitWithFeedback, removeOutfit } = useOutfitStore();
   const [outfit, setOutfit] = useState<any>(null);
+  
+  const [expandedFit, setExpandedFit] = useState(false);
+  const [expandedColor, setExpandedColor] = useState(false);
+  const [expandedStyle, setExpandedStyle] = useState(false);
+  const [displayedTitleScore, setDisplayedTitleScore] = useState('0.0');
+  const [isImageModalVisible, setIsImageModalVisible] = useState(false);
+  
+  // Add reference for capturing the score card
+  const scoreCardRef = useRef<ViewShot>(null);
+  const [hasStoragePermission, setHasStoragePermission] = useState(false);
   
   // Fetch outfit details
   useEffect(() => {
@@ -383,6 +473,91 @@ export default function OutfitDetailScreen() {
     }
   };
   
+  // Request storage permission when the component mounts
+  useEffect(() => {
+    const checkPermissions = async () => {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      setHasStoragePermission(status === 'granted');
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photo library to save images.',
+          [{ text: 'OK' }]
+        );
+      }
+    };
+    
+    checkPermissions();
+  }, []);
+  
+  // Share outfit function - updated to share an image
+  const shareOutfit = async () => {
+    try {
+      if (!scoreCardRef.current || !scoreCardRef.current.capture) {
+        Alert.alert('Error', 'Cannot capture image at this time.');
+        return;
+      }
+      
+      // Capture the score card as an image
+      const uri = await scoreCardRef.current.capture();
+      outfitLogger.info('Captured image for sharing', { uri: uri.substring(0, 30) + '...' });
+      
+      // Share the image
+      await Share.share({
+        url: uri, // iOS only
+        message: Platform.OS === 'android' ? uri : '', // Android needs the URI in the message
+        title: `My ${(outfit.feedback.score || 7.8).toFixed(1)}/10 Outfit Rating - dripmax.ai`
+      });
+    } catch (error) {
+      outfitLogger.error('Error sharing outfit image', { error: error instanceof Error ? error.message : String(error) });
+      Alert.alert('Error', 'Failed to share image.');
+    }
+  };
+  
+  // Save outfit function - updated to save an image
+  const saveOutfit = async () => {
+    try {
+      if (!hasStoragePermission) {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Required', 'Please allow access to your photo library to save images.');
+          return;
+        }
+        setHasStoragePermission(true);
+      }
+      
+      if (!scoreCardRef.current || !scoreCardRef.current.capture) {
+        Alert.alert('Error', 'Cannot capture image at this time.');
+        return;
+      }
+      
+      // Capture the score card as an image
+      const uri = await scoreCardRef.current.capture();
+      outfitLogger.info('Captured image for saving', { uri: uri.substring(0, 30) + '...' });
+      
+      // Save to media library
+      const asset = await MediaLibrary.createAssetAsync(uri);
+      const album = await MediaLibrary.getAlbumAsync('Dripmax');
+      
+      if (album) {
+        await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+      } else {
+        await MediaLibrary.createAlbumAsync('Dripmax', asset, false);
+      }
+      
+      Alert.alert('Success', 'Image saved to your photo library!');
+    } catch (error) {
+      outfitLogger.error('Error saving outfit image', { error: error instanceof Error ? error.message : String(error) });
+      Alert.alert('Error', 'Failed to save image.');
+    }
+  };
+  
+  // Function to toggle the image modal
+  const toggleImageModal = () => {
+    setIsImageModalVisible(!isImageModalVisible);
+  };
+  
   // Loading state
   if (isLoading) {
     return (
@@ -480,96 +655,114 @@ export default function OutfitDetailScreen() {
         ]}
         contentContainerStyle={styles.contentContainer}
       >
-        {/* Top Section with smaller image and title/rating */}
-        <View style={styles.topSection}>
-          {/* Centered Outfit Image */}
-          <View style={styles.smallImageContainer}>
-            <Image 
-              source={{ uri: getTransformedImageUrl(outfit.photourl, 300, 300) }} 
-              style={styles.smallOutfitImage} 
-              resizeMode="cover"
-            />
+        {/* Top Section with scores and image */}
+        <ViewShot 
+          ref={scoreCardRef}
+          options={{ 
+            format: 'jpg', 
+            quality: 0.9,
+            result: 'tmpfile'
+          }}
+        >
+          <View style={styles.scoreCard}>
+            <View style={styles.scoreCardContent}>
+              {/* Top section with image and score in a row */}
+              <View style={styles.compactTopSection}>
+                {/* Left side: Image */}
+                <TouchableOpacity 
+                  style={styles.compactImageContainer}
+                  onPress={toggleImageModal}
+                  activeOpacity={0.9}
+                >
+                  <Image 
+                    source={{ uri: getTransformedImageUrl(outfit.photourl, 300, 400) }} 
+                    style={styles.prominentOutfitImage} 
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+                
+                {/* Right side: Title and score */}
+                <View style={styles.compactScoreContainer}>
+                  <Text style={styles.cardTitle}>{`You're a ${displayedTitleScore}`}</Text>
+                  <Text style={styles.cardSubtitle}>{outfitTitle}</Text>
+                  
+                  {/* Progress bar */}
+                  <View style={styles.progressBarContainer}>
+                    <RatingProgressBar 
+                      rating={feedback.score || 7.8} 
+                      setDisplayedTitleScore={setDisplayedTitleScore}
+                    />
+                  </View>
+                </View>
+              </View>
+              
+              {/* Overall Analysis section moved above subscores */}
+              <View style={styles.analysisSection}>
+                <Text style={styles.analysisSectionTitle}>REVIEW</Text>
+                <Text style={styles.analysisText}>
+                  {feedback.overall_feedback || "This outfit blends casual and bold elements, creating a striking street style look. The combination of layers and textures gives it a unique character."}
+                </Text>
+              </View>
+              
+              {/* Sub-scores */}
+              <View style={styles.compactDivider} />
+              
+              <SubScoreIndicator 
+                icon="👔"
+                label="FIT" 
+                description="Well Proportioned"
+                score={feedback.fit_score || 7.5}
+                onPress={() => setExpandedFit(!expandedFit)}
+                expanded={expandedFit}
+                analysisText={feedback.fit_analysis || "The jacket fits well, creating a structured silhouette, while the loose pants add a relaxed touch. The shirt underneath introduces an additional layer of interest with its extended length."}
+              />
+              
+              <View style={styles.compactSubScoreDivider} />
+              
+              <SubScoreIndicator 
+                icon="🎨"
+                label="COLOR" 
+                description="Excellent Palette"
+                score={feedback.color_score || 8.1}
+                onPress={() => setExpandedColor(!expandedColor)}
+                expanded={expandedColor}
+                analysisText={feedback.color_analysis || "The vibrant red jacket is a standout piece against the more subdued gray pants, creating a strong visual contrast. The striped shirt provides a playful yet cohesive element to the overall look."}
+              />
+              
+              <View style={styles.compactSubScoreDivider} />
+              
+              {/* Add wordmark at bottom of card */}
+              <View style={styles.wordmarkContainer}>
+                <Text style={styles.wordmarkText}>dripmax.app</Text>
+              </View>
+            </View>
           </View>
+        </ViewShot>
+        
+        {/* Action Buttons */}
+        <View style={styles.buttonsContainer}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.secondaryButton]} 
+            onPress={saveOutfit}
+          >
+            <Ionicons name="download-outline" size={20} color="white" />
+            <Text style={styles.buttonText}>SAVE</Text>
+          </TouchableOpacity>
           
-          <View style={styles.topSectionTextContainer}>
-            {/* Outfit Title */}
-            <Text style={[
-              styles.outfitTitle,
-              { color: 'white', fontFamily: 'RobotoMono-Regular' }
-            ]}>
-              {outfitTitle}
-            </Text>
-            
-            {/* Rating */}
-            <RatingProgressBar rating={feedback.score || 7.8} />
-          </View>
-        </View>
-        
-        {/* Drip Analysis */}
-        <View style={styles.section}>
-          <SectionHeader 
-            title="DRIP ANALYSIS" 
-            iconType="Ionicons" 
-            iconName="water-outline" 
-          />
-          <Text style={[
-            styles.sectionText,
-            { color: 'white', fontFamily: 'RobotoMono-Regular' }
-          ]}>
-            {feedback.overall_feedback || "This outfit blends casual and bold elements, creating a striking street style look. The combination of layers and textures gives it a unique character."}
-          </Text>
-        </View>
-        
-        {/* Perfect For */}
-        <View style={styles.section}>
-          <SectionHeader 
-            title="PERFECT FOR" 
-            iconType="Ionicons" 
-            iconName="today-outline" 
-          />
-          <View style={styles.tagsContainer}>
-            {(feedback.event_suitability || mockPerfectFor).map((event: string, index: number) => (
-              <TagItem key={index} label={event} />
-            ))}
-          </View>
-        </View>
-        
-        {/* Fit Analysis */}
-        <View style={styles.section}>
-          <SectionHeader 
-            title="FIT ANALYSIS" 
-            iconType="Ionicons" 
-            iconName="build-outline" 
-          />
-          <Text style={[
-            styles.sectionText,
-            { color: 'white', fontFamily: 'RobotoMono-Regular' }
-          ]}>
-            {feedback.fit_analysis || "The jacket fits well, creating a structured silhouette, while the loose pants add a relaxed touch. The shirt underneath introduces an additional layer of interest with its extended length."}
-          </Text>
-        </View>
-        
-        {/* Color Analysis */}
-        <View style={styles.section}>
-          <SectionHeader 
-            title="COLOR ANALYSIS" 
-            iconType="Ionicons" 
-            iconName="brush-outline" 
-          />
-          <Text style={[
-            styles.sectionText,
-            { color: 'white', fontFamily: 'RobotoMono-Regular' }
-          ]}>
-            {feedback.color_analysis || "The vibrant red jacket is a standout piece against the more subdued gray pants, creating a strong visual contrast. The striped shirt provides a playful yet cohesive element to the overall look."}
-          </Text>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.secondaryButton]} 
+            onPress={shareOutfit}
+          >
+            <Ionicons name="paper-plane-outline" size={20} color="white" />
+            <Text style={styles.buttonText}>SHARE</Text>
+          </TouchableOpacity>
         </View>
         
         {/* Suggested Items */}
         <View style={styles.section}>
           <SectionHeader 
             title="SUGGESTED ITEMS" 
-            iconType="Ionicons" 
-            iconName="bag-add-outline" 
+            emoji="🛍️"
           />
           <View style={styles.tagsContainer}>
             {(feedback.item_suggestions || mockSuggestedItems).map((item: string, index: number) => (
@@ -578,12 +771,24 @@ export default function OutfitDetailScreen() {
           </View>
         </View>
         
+        {/* Perfect For */}
+        <View style={styles.section}>
+          <SectionHeader 
+            title="PERFECT FOR" 
+            emoji="🎯"
+          />
+          <View style={styles.tagsContainer}>
+            {(feedback.event_suitability || mockPerfectFor).map((event: string, index: number) => (
+              <TagItem key={index} label={event} />
+            ))}
+          </View>
+        </View>
+        
         {/* Styling Tips */}
         <View style={styles.section}>
           <SectionHeader 
             title="STYLING TIPS" 
-            iconType="Ionicons" 
-            iconName="rocket-outline" 
+            emoji="✨"
           />
           <Text style={[
             styles.sectionText,
@@ -595,9 +800,43 @@ export default function OutfitDetailScreen() {
 
         {/* App signature for virality */}
         <View style={styles.appSignature}>
-          <Text style={styles.signatureText}>dripmax.ai</Text>
+          <Text style={styles.signatureText}>dripmax.app</Text>
         </View>
       </ScrollView>
+      
+      {/* Image Modal */}
+      <Modal
+        visible={isImageModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={toggleImageModal}
+      >
+        <StatusBar hidden={isImageModalVisible} />
+        <View style={styles.modalContainer}>
+          <TouchableOpacity
+            style={styles.modalCloseButton}
+            onPress={toggleImageModal}
+          >
+            <Ionicons name="close-circle" size={36} color="white" />
+          </TouchableOpacity>
+          
+          <View style={styles.modalImageContainer}>
+            <Image 
+              source={{ uri: outfit?.photourl || undefined }} 
+              style={styles.modalImage} 
+              resizeMode="contain"
+            />
+          </View>
+          
+          {/* Optional title at the bottom */}
+          <View style={styles.modalTitleContainer}>
+            <Text style={styles.modalTitleText}>
+              {`${(feedback.score || 7.8).toFixed(1)}/10 - ${outfitTitle}`}
+            </Text>
+            <Text style={styles.modalSubtitleText}>dripmax.app</Text>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -628,147 +867,149 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   headerButton: {
-    marginHorizontal: 8,
+    paddingHorizontal: 16,
+    height: 44,
+    justifyContent: 'center',
   },
-  // New styles for the redesigned top section
-  topSection: {
-    flexDirection: 'column',
-    alignItems: 'center',
+  // New styles for the redesigned card-based layout
+  scoreCard: {
     marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  smallImageContainer: {
-    width: 160,
-    height: 160,
+    marginVertical: 12,
     borderRadius: 16,
+    backgroundColor: '#222222',
     overflow: 'hidden',
-    marginBottom: 16,
+  },
+  scoreCardContent: {
+    padding: 12,
+  },
+  // New more compact layout styles
+  compactTopSection: {
+    flexDirection: 'row',
+    marginBottom: 14,
+  },
+  compactImageContainer: {
+    width: '40%',
+    aspectRatio: 3/4,
+    borderRadius: 8,
+    overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#00FF77',
+    borderColor: '#444444',
+    marginRight: 12,
   },
-  smallOutfitImage: {
-    width: '100%',
-    height: '100%',
+  compactScoreContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
-  topSectionTextContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  outfitTitle: {
-    fontSize: 20,
+  cardTitle: {
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-    fontFamily: 'RobotoMono-Regular',
     color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+    marginBottom: 2,
   },
-  ratingContainer: {
-    width: '100%',
-    marginBottom: 4,
+  cardSubtitle: {
+    fontSize: 16,
+    color: '#BBBBBB',
+    fontFamily: 'RobotoMono-Regular',
   },
-  ratingBarContainer: {
-    height: 40, // Slightly smaller
-    width: '100%',
-    backgroundColor: 'transparent',
-    justifyContent: 'center',
-    position: 'relative',
+  progressBarContainer: {
+    marginTop: 8,
+    marginBottom: 8,
   },
-  ratingBackground: {
-    position: 'absolute',
-    top: 10,
-    left: 0,
-    right: 0,
-    height: 20, // Slightly smaller
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+  compactDivider: {
+    height: 1,
+    backgroundColor: '#444444',
+    marginVertical: 14,
   },
-  dividerLine: {
-    position: 'absolute',
-    top: 10,
-    width: 2,
-    height: 20, // Adjust for new height
-    backgroundColor: 'black',
-    zIndex: 1,
+  compactSubScoreDivider: {
+    height: 1,
+    backgroundColor: '#444444',
+    marginVertical: 12,
   },
-  ratingForeground: {
-    position: 'absolute',
-    top: 10,
-    left: 0,
-    height: 20, // Adjust for new height
-    borderRadius: 10,
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-    transform: [{ translateX: 0 }], // Remove negative transform that was causing issues
-    backgroundColor: '#00FF77',
-  },
-  ratingCircle: {
-    position: 'absolute',
-    top: 3, // Adjust for new position
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    justifyContent: 'center',
+  subScoreRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    transform: [{ translateX: -17 }], // Center the circle on the edge of the foreground
-    backgroundColor: '#00FF77',
-    borderWidth: 2,
-    borderColor: 'black',
-    zIndex: 2,
+    paddingVertical: 4,
   },
-  ratingValue: {
-    color: 'black',
-    fontSize: 13,
+  subScoreTextColumn: {
+    flex: 1,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  subScoreEmoji: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  subScoreLabel: {
+    fontSize: 18,
     fontWeight: 'bold',
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+    marginBottom: 2,
+  },
+  subScoreDescription: {
+    fontSize: 16,
+    color: '#BBBBBB',
+    fontFamily: 'RobotoMono-Regular',
+    marginTop: 2,
+  },
+  subScoreNumber: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
     fontFamily: 'RobotoMono-Regular',
   },
   section: {
     marginHorizontal: 16,
-    marginTop: 12, // Reduced margin to fit more content
-    borderRadius: 12,
-    padding: 12, // Slightly reduced padding
+    marginTop: 12,
+    borderRadius: 16,
+    padding: 16,
     backgroundColor: '#222222',
+    marginBottom: 4,
   },
   sectionHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8, // Reduced margin
+    marginBottom: 12,
   },
-  sectionIcon: {
+  sectionHeaderEmoji: {
+    fontSize: 22,
     marginRight: 8,
   },
   sectionHeaderText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     letterSpacing: 0.5,
     fontFamily: 'RobotoMono-Regular',
     color: 'white',
   },
   sectionText: {
-    fontSize: 14, // Slightly smaller font
-    lineHeight: 20, // Reduced line height
+    fontSize: 15,
+    lineHeight: 22,
     fontFamily: 'RobotoMono-Regular',
     color: 'white',
   },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 4,
+    marginTop: 6,
   },
   tagItem: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 16,
-    marginRight: 6,
-    marginBottom: 6,
+    marginRight: 8,
+    marginBottom: 8,
     backgroundColor: '#333',
   },
   tagItemText: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'RobotoMono-Regular',
+    fontWeight: '500',
     color: 'white',
   },
   button: {
@@ -778,10 +1019,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
+    color: 'white',
     fontFamily: 'RobotoMono-Regular',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 6,
+    letterSpacing: 0.5,
   },
   loadingText: {
     marginTop: 16,
@@ -804,9 +1047,21 @@ const styles = StyleSheet.create({
   },
   signatureText: {
     fontFamily: 'RobotoMono-Regular',
-    fontWeight: 'bold',
     fontSize: 16,
-    color: '#00FF77',
+    color: '#666666',
+    letterSpacing: 1,
+  },
+  // Add wordmark styles
+  wordmarkContainer: {
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  wordmarkText: {
+    fontFamily: 'RobotoMono-Regular',
+    fontSize: 16,
+    color: '#666666',
+    letterSpacing: 1,
   },
   // Keep reference to old image container for backward compatibility
   imageContainer: {
@@ -822,5 +1077,217 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     display: 'none', // Hide the old image
+  },
+  // New styles for sub-scores
+  subScoresContainer: {
+    display: 'none', // Hide the old sub-scores container
+  },
+  subScoreContainer: {
+    display: 'none', // Hide the old sub-score container
+  },
+  scoreNumber: {
+    display: 'none', // Hide the old score number
+  },
+  slimProgressContainer: {
+    display: 'none', // Hide the old progress container
+  },
+  // Keep these styles for the progress bar component
+  ratingContainer: {
+    width: '100%',
+    marginBottom: 8,
+  },
+  ratingBarContainer: {
+    height: 40,
+    width: '100%',
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  ratingBackground: {
+    position: 'absolute',
+    top: 10,
+    left: 0,
+    right: 0,
+    height: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+  },
+  dividerLine: {
+    position: 'absolute',
+    top: 10,
+    width: 2,
+    height: 20,
+    backgroundColor: 'black',
+    zIndex: 1,
+  },
+  ratingForeground: {
+    position: 'absolute',
+    top: 10,
+    left: 0,
+    height: 20,
+    borderRadius: 10,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+    transform: [{ translateX: 0 }],
+    backgroundColor: '#00FF77',
+  },
+  ratingCircle: {
+    position: 'absolute',
+    top: 3,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ translateX: -17 }],
+    backgroundColor: '#00FF77',
+    borderWidth: 2,
+    borderColor: 'black',
+    zIndex: 2,
+  },
+  ratingValue: {
+    color: 'black',
+    fontSize: 13,
+    fontWeight: 'bold',
+    fontFamily: 'RobotoMono-Regular',
+  },
+  
+  // Hidden styles
+  topSection: {
+    display: 'none', // Hide the old top section
+  },
+  inCardSection: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  expandedAnalysis: {
+    paddingTop: 12,
+    paddingBottom: 6,
+    paddingHorizontal: 0,
+  },
+  expandedAnalysisText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#BBBBBB',
+    fontFamily: 'RobotoMono-Regular',
+  },
+  subScoreRightColumn: {
+    alignItems: 'flex-end',
+  },
+  expandIcon: {
+    marginLeft: 6,
+  },
+  // ... existing hidden styles ...
+  analysisSectionTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: 'white',
+    fontFamily: 'RobotoMono-Regular',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+    marginTop: 4,
+  },
+  analysisSection: {
+    marginBottom: 12,
+  },
+  analysisText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#BBBBBB',
+    fontFamily: 'RobotoMono-Regular',
+  },
+  // Button styles
+  buttonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 50, // Pill shape with maximum radius
+    flex: 1,
+    height: 52, // Matching height with other app buttons
+  },
+  secondaryButton: {
+    backgroundColor: '#222222',
+    borderWidth: 1,
+    borderColor: '#444444',
+    marginHorizontal: 6,
+  },
+  // Add modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 18,
+  },
+  modalImageContainer: {
+    width: '100%',
+    height: '80%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.44,
+    shadowRadius: 10.32,
+    elevation: 16,
+  },
+  modalTitleContainer: {
+    marginTop: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  modalTitleText: {
+    color: 'white',
+    fontSize: 18,
+    fontFamily: 'RobotoMono-Regular',
+    textAlign: 'center',
+  },
+  modalSubtitleText: {
+    color: '#666666',
+    fontSize: 14,
+    fontFamily: 'RobotoMono-Regular',
+    textAlign: 'center',
+    marginTop: 8,
+    letterSpacing: 1,
+  },
+  // Add new styles for prominent image
+  prominentImageContainer: {
+    width: '100%',
+    aspectRatio: 3/4,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#444444',
+    display: 'none', // Hide this container
+  },
+  prominentOutfitImage: {
+    width: '100%',
+    height: '100%',
+  },
+  titleScoreContainer: {
+    marginBottom: 16,
   },
 }); 
