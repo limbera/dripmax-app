@@ -26,6 +26,8 @@ type OutfitFeedback = {
   other_suggestions: string;
   score: number;
   score_justification: string;
+  fit_score: number; // Subscore for fit quality
+  color_score: number; // Subscore for color harmony
 };
 
 serve(async (req) => {
@@ -143,7 +145,9 @@ Return your response in valid JSON with the following structure:
   "item_suggestions": ["Five", "specific", "items", "to", "enhance"],
   "other_suggestions": "One to two sentences on non-clothing adjustments",
   "score": "A number from 0.0–10.0 with 1 decimal place reflecting your overall rating for the outfit",
-  "score_justification": "A paragraph explaining why this score was given, with reference to specific strengths and weaknesses"
+  "score_justification": "A paragraph explaining why this score was given, with reference to specific strengths and weaknesses",
+  "fit_score": "A number from 0.0–10.0 with 1 decimal place indicating the quality of fit",
+  "color_score": "A number from 0.0–10.0 with 1 decimal place indicating the quality of color harmony"
 }`
         },
         {
@@ -211,10 +215,10 @@ Return your response in valid JSON with the following structure:
       }
 
       // Add score validation
-      const validateScore = (value: any): number => {
+      const validateScore = (value: any, fieldName: string = 'score'): number => {
         const score = Number(value);
         if (isNaN(score) || score < 0 || score > 10) {
-          throw new Error('Invalid score: must be a number between 0 and 10');
+          throw new Error(`Invalid ${fieldName}: must be a number between 0 and 10`);
         }
         return Number(score.toFixed(1)); // Ensure 1 decimal place
       };
@@ -226,8 +230,10 @@ Return your response in valid JSON with the following structure:
         event_suitability: validateStringArray(feedback.event_suitability, 'event_suitability'),
         item_suggestions: validateStringArray(feedback.item_suggestions, 'item_suggestions', 5),
         other_suggestions: validateText(feedback.other_suggestions, 'other_suggestions'),
-        score: validateScore(feedback.score),
-        score_justification: validateText(feedback.score_justification, 'score_justification')
+        score: validateScore(feedback.score, 'score'),
+        score_justification: validateText(feedback.score_justification, 'score_justification'),
+        fit_score: validateScore(feedback.fit_score, 'fit_score'),
+        color_score: validateScore(feedback.color_score, 'color_score')
       }
     }
 
@@ -271,7 +277,9 @@ Return your response in valid JSON with the following structure:
       ],
       other_suggestions: `Unable to complete analysis: ${errorMessage}. Please try again later.`,
       score: 0,
-      score_justification: 'Analysis failed due to an unknown error.'
+      score_justification: 'Analysis failed due to an unknown error.',
+      fit_score: 0,
+      color_score: 0
     }
     
     try {

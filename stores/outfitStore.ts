@@ -21,6 +21,9 @@ export interface Feedback {
   item_suggestions: string[];
   other_suggestions: string;
   score: number;
+  score_justification: string;
+  fit_score: number;
+  color_score: number;
 }
 
 export interface OutfitWithFeedback extends Outfit {
@@ -77,7 +80,7 @@ export const useOutfitStore = create<OutfitState>()(
             feedback (
               id, overall_feedback, fit_analysis, color_analysis,
               event_suitability, item_suggestions, other_suggestions,
-              score
+              score, score_justification, fit_score, color_score
             )
           `)
           .eq('userid', userId)
@@ -142,7 +145,7 @@ export const useOutfitStore = create<OutfitState>()(
             feedback (
               id, overall_feedback, fit_analysis, color_analysis,
               event_suitability, item_suggestions, other_suggestions,
-              score
+              score, score_justification, fit_score, color_score
             )
           `)
           .eq('id', outfitId)
