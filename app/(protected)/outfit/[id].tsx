@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator, Alert, ActionSheetIOS, Platform } from 'react-native';
+import React, { useEffect, useState, useLayoutEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator, Alert, ActionSheetIOS, Platform, Animated, Easing } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { useColorScheme } from '../../../hooks/useColorScheme';
@@ -29,6 +29,37 @@ const getScoreLabel = (score: number) => {
   // Ensure we don't go below 1 or above 10
   const normalizedScore = Math.max(1, Math.min(10, roundedScore));
   return SCORE_LABELS[normalizedScore as keyof typeof SCORE_LABELS];
+};
+
+// Function to determine rating color based on score
+const getRatingColor = (rating: number | undefined | null) => {
+  if (rating === undefined || rating === null) return '#AAAAAA'; // Gray for N/A
+  
+  // More granular color coding for scores 1-10
+  switch (Math.floor(rating)) {
+    case 10:
+      return '#00FF77'; // Bright green for perfect scores
+    case 9:
+      return '#40FF88'; // Light green
+    case 8:
+      return '#80FF99'; // Pale green
+    case 7:
+      return '#FFDD00'; // Gold
+    case 6:
+      return '#FFBB33'; // Orange-yellow
+    case 5:
+      return '#FF9933'; // Dark orange
+    case 4:
+      return '#FF6633'; // Orange-red
+    case 3:
+      return '#FF4040'; // Bright red
+    case 2:
+      return '#E62020'; // Dark red
+    case 1:
+      return '#CC0000'; // Very dark red
+    default:
+      return '#AAAAAA'; // Gray for unexpected values
+  }
 };
 
 // Component for a section header with icon
@@ -91,11 +122,59 @@ const TagItem = ({ label }: { label: string }) => {
 const RatingProgressBar = ({ rating }: { rating: number }) => {
   // Convert rating to percentage (0-10 scale)
   const percentage = Math.min(Math.max(rating * 10, 0), 100);
+  const animatedWidth = useRef(new Animated.Value(0)).current;
+  const [displayedScore, setDisplayedScore] = useState('0.0');
+  const animatedColor = useRef(new Animated.Value(0)).current;
   
-  // Get color based on rating
-  const getColor = () => {
-    return '#00FF77'; // Always return this color
-  };
+  // Animate the progress bar on mount
+  useEffect(() => {
+    // Update the displayed score as the animation progresses
+    animatedWidth.addListener(({ value }) => {
+      // Convert percentage back to score (0-10 scale)
+      const currentScore = (value / 10).toFixed(1);
+      setDisplayedScore(currentScore);
+    });
+    
+    Animated.parallel([
+      // Animate the width
+      Animated.timing(animatedWidth, {
+        toValue: percentage,
+        duration: 2000, // 2 seconds
+        easing: Easing.bezier(0.5, 0, 0, 1), // Very fast start, very slow finish
+        useNativeDriver: false,
+      }),
+      // Animate the color (from 0 to rating value)
+      Animated.timing(animatedColor, {
+        toValue: rating,
+        duration: 2000, // Same duration as width animation
+        easing: Easing.bezier(0.5, 0, 0, 1), // Same easing as width animation
+        useNativeDriver: false,
+      })
+    ]).start();
+    
+    // Cleanup listener on unmount
+    return () => {
+      animatedWidth.removeAllListeners();
+    };
+  }, []);
+  
+  // Interpolate color based on current animated score
+  const backgroundColor = animatedColor.interpolate({
+    inputRange: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    outputRange: [
+      '#AAAAAA', // Gray for 0
+      '#CC0000', // Very dark red for 1
+      '#E62020', // Dark red for 2
+      '#FF4040', // Bright red for 3
+      '#FF6633', // Orange-red for 4
+      '#FF9933', // Dark orange for 5
+      '#FFBB33', // Orange-yellow for 6
+      '#FFDD00', // Gold for 7
+      '#80FF99', // Pale green for 8
+      '#40FF88', // Light green for 9
+      '#00FF77'  // Bright green for 10
+    ]
+  });
   
   return (
     <View style={styles.ratingContainer}>
@@ -108,18 +187,32 @@ const RatingProgressBar = ({ rating }: { rating: number }) => {
         <View style={[styles.dividerLine, { left: '60%' }]} />
         <View style={[styles.dividerLine, { left: '80%' }]} />
         
-        <View 
+        <Animated.View 
           style={[
             styles.ratingForeground, 
             { 
-              width: `${percentage}%`,
-              backgroundColor: getColor()
+              width: animatedWidth.interpolate({
+                inputRange: [0, 100],
+                outputRange: ['0%', '100%'],
+              }),
+              backgroundColor: backgroundColor
             }
           ]} 
         />
-        <View style={[styles.ratingCircle, { left: `${percentage}%`, backgroundColor: getColor() }]}>
-          <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
-        </View>
+        <Animated.View 
+          style={[
+            styles.ratingCircle, 
+            { 
+              left: animatedWidth.interpolate({
+                inputRange: [0, 100],
+                outputRange: ['0%', '100%'],
+              }),
+              backgroundColor: backgroundColor
+            }
+          ]}
+        >
+          <Text style={styles.ratingValue}>{displayedScore}</Text>
+        </Animated.View>
       </View>
     </View>
   );
@@ -387,27 +480,29 @@ export default function OutfitDetailScreen() {
         ]}
         contentContainerStyle={styles.contentContainer}
       >
-        {/* Outfit Image */}
-        <View style={styles.imageContainer}>
-          <Image 
-            source={{ uri: getTransformedImageUrl(outfit.photourl, 400, 600) }} 
-            style={styles.outfitImage} 
-            resizeMode="cover"
-          />
-        </View>
-        
-        {/* Wrapper for title and rating to match section alignment */}
-        <View style={[styles.section, { backgroundColor: 'transparent' }]}>
-          {/* Outfit Title */}
-          <Text style={[
-            styles.outfitTitle,
-            { color: 'white', fontFamily: 'RobotoMono-Regular' }
-          ]}>
-            {outfitTitle}
-          </Text>
+        {/* Top Section with smaller image and title/rating */}
+        <View style={styles.topSection}>
+          {/* Centered Outfit Image */}
+          <View style={styles.smallImageContainer}>
+            <Image 
+              source={{ uri: getTransformedImageUrl(outfit.photourl, 300, 300) }} 
+              style={styles.smallOutfitImage} 
+              resizeMode="cover"
+            />
+          </View>
           
-          {/* Rating */}
-          <RatingProgressBar rating={feedback.score || 7.8} />
+          <View style={styles.topSectionTextContainer}>
+            {/* Outfit Title */}
+            <Text style={[
+              styles.outfitTitle,
+              { color: 'white', fontFamily: 'RobotoMono-Regular' }
+            ]}>
+              {outfitTitle}
+            </Text>
+            
+            {/* Rating */}
+            <RatingProgressBar rating={feedback.score || 7.8} />
+          </View>
         </View>
         
         {/* Drip Analysis */}
@@ -497,6 +592,11 @@ export default function OutfitDetailScreen() {
             {feedback.other_suggestions || "Consider adding a bold lip color to complement the jacket's vibrancy and enhance the overall look."}
           </Text>
         </View>
+
+        {/* App signature for virality */}
+        <View style={styles.appSignature}>
+          <Text style={styles.signatureText}>dripmax.ai</Text>
+        </View>
       </ScrollView>
     </>
   );
@@ -530,33 +630,48 @@ const styles = StyleSheet.create({
   headerButton: {
     marginHorizontal: 8,
   },
-  imageContainer: {
-    width: '90%',
-    alignSelf: 'center',
-    aspectRatio: 3/4,
-    marginTop: 20,
-    borderRadius: 12,
-    overflow: 'hidden',
+  // New styles for the redesigned top section
+  topSection: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
   },
-  outfitImage: {
+  smallImageContainer: {
+    width: 160,
+    height: 160,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#00FF77',
+  },
+  smallOutfitImage: {
     width: '100%',
     height: '100%',
   },
+  topSectionTextContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
   outfitTitle: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginHorizontal: 0,
-    marginTop: 0,
-    marginBottom: 20,
+    marginBottom: 12,
+    textAlign: 'center',
     fontFamily: 'RobotoMono-Regular',
     color: 'white',
   },
   ratingContainer: {
-    marginHorizontal: 0,
-    marginBottom: 0,
+    width: '100%',
+    marginBottom: 4,
   },
   ratingBarContainer: {
-    height: 50,
+    height: 40, // Slightly smaller
     width: '100%',
     backgroundColor: 'transparent',
     justifyContent: 'center',
@@ -567,15 +682,15 @@ const styles = StyleSheet.create({
     top: 10,
     left: 0,
     right: 0,
-    height: 24,
+    height: 20, // Slightly smaller
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 10,
   },
   dividerLine: {
     position: 'absolute',
     top: 10,
     width: 2,
-    height: 24,
+    height: 20, // Adjust for new height
     backgroundColor: 'black',
     zIndex: 1,
   },
@@ -583,22 +698,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     left: 0,
-    height: 24,
-    borderRadius: 12,
+    height: 20, // Adjust for new height
+    borderRadius: 10,
     borderTopRightRadius: 0,
     borderBottomRightRadius: 0,
-    transform: [{ translateX: -6 }], // Adjust for circle
+    transform: [{ translateX: 0 }], // Remove negative transform that was causing issues
     backgroundColor: '#00FF77',
   },
   ratingCircle: {
     position: 'absolute',
-    top: 5,
+    top: 3, // Adjust for new position
     width: 34,
     height: 34,
     borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
-    transform: [{ translateX: -17 }],
+    transform: [{ translateX: -17 }], // Center the circle on the edge of the foreground
     backgroundColor: '#00FF77',
     borderWidth: 2,
     borderColor: 'black',
@@ -612,15 +727,15 @@ const styles = StyleSheet.create({
   },
   section: {
     marginHorizontal: 16,
-    marginTop: 20,
+    marginTop: 12, // Reduced margin to fit more content
     borderRadius: 12,
-    padding: 16,
+    padding: 12, // Slightly reduced padding
     backgroundColor: '#222222',
   },
   sectionHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8, // Reduced margin
   },
   sectionIcon: {
     marginRight: 8,
@@ -633,8 +748,8 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   sectionText: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14, // Slightly smaller font
+    lineHeight: 20, // Reduced line height
     fontFamily: 'RobotoMono-Regular',
     color: 'white',
   },
@@ -680,5 +795,32 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontFamily: 'RobotoMono-Regular',
     color: 'white',
+  },
+  // New app signature for virality
+  appSignature: {
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  signatureText: {
+    fontFamily: 'RobotoMono-Regular',
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#00FF77',
+  },
+  // Keep reference to old image container for backward compatibility
+  imageContainer: {
+    width: '90%',
+    alignSelf: 'center',
+    aspectRatio: 3/4,
+    marginTop: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+    display: 'none', // Hide the old image container
+  },
+  outfitImage: {
+    width: '100%',
+    height: '100%',
+    display: 'none', // Hide the old image
   },
 }); 
