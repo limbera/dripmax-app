@@ -655,28 +655,17 @@ export default function CameraScreen() {
           // @ts-ignore
           ref={cameraRef}
         >
-          {/* Frame overlay */}
-          <View style={styles.frameOverlay}>
-            {/* Top overlay */}
-            <View style={styles.overlaySection} />
+          {/* Simplified overlay with just the silhouette image */}
+          <View style={styles.centerSilhouette}>
+            {/* Silhouette image centered */}
+            <Image 
+              source={require('../../../assets/images/silhouette-overlay.png')} 
+              style={styles.silhouetteImage}
+              resizeMode="contain"
+            />
             
-            {/* Middle section with cutout */}
-            <View style={styles.middleSection}>
-              {/* Left overlay */}
-              <View style={styles.overlaySection} />
-              
-              {/* Transparent rectangular cutout */}
-              <View style={styles.frame}>
-                {/* Guide text */}
-                <Text style={styles.guideText}>Strike a pose!</Text>
-              </View>
-              
-              {/* Right overlay */}
-              <View style={styles.overlaySection} />
-            </View>
-            
-            {/* Bottom overlay */}
-            <View style={styles.overlaySection} />
+            {/* Guide text placed at bottom */}
+            <Text style={styles.guideText}>Strike a pose!</Text>
           </View>
           
           <View style={styles.cameraControls}>
@@ -1079,31 +1068,39 @@ const styles = StyleSheet.create({
   overlaySection: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   middleSection: {
     width: '100%',
     height: SCREEN_WIDTH * 1.4,
     flexDirection: 'row',
   },
-  frame: {
-    width: SCREEN_WIDTH * 0.7,
-    height: SCREEN_WIDTH * 1.4,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.8)',
-    justifyContent: 'flex-end',
+  silhouetteContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 10,
+    paddingHorizontal: 0,
+  },
+  silhouetteImage: {
+    width: SCREEN_WIDTH * 1.4,
+    height: SCREEN_HEIGHT * 1.35,
+    opacity: 0.5,
+    transform: [{ translateY: -50 }],
   },
   guideText: {
     color: 'white',
     fontFamily: 'RobotoMono-Regular',
     fontSize: 14,
+    fontWeight: '500',
     backgroundColor: 'rgba(0,0,0,0.5)',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 20,
+    position: 'absolute',
+    bottom: 20,
+    zIndex: 10,
   },
   poseText: {
     color: 'white',
@@ -1116,5 +1113,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#00FF77',
+  },
+  centerSilhouette: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 }); 

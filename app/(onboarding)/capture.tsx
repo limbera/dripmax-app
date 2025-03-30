@@ -255,28 +255,17 @@ export default function CaptureScreen() {
           facing={cameraFacing}
           enableTorch={flashMode}
         >
-          {/* Frame overlay */}
-          <View style={styles.frameOverlay}>
-            {/* Top overlay */}
-            <View style={styles.overlaySection} />
+          {/* Simplified overlay with just the silhouette image */}
+          <View style={styles.centerSilhouette}>
+            {/* Silhouette image centered */}
+            <Image 
+              source={require('../../assets/images/silhouette-overlay.png')} 
+              style={styles.silhouetteImage}
+              resizeMode="contain"
+            />
             
-            {/* Middle section with cutout */}
-            <View style={styles.middleSection}>
-              {/* Left overlay */}
-              <View style={styles.overlaySection} />
-              
-              {/* Transparent rectangular cutout */}
-              <View style={styles.frame}>
-                {/* Guide text */}
-                <Text style={styles.guideText}>Take a photo of your outfit</Text>
-              </View>
-              
-              {/* Right overlay */}
-              <View style={styles.overlaySection} />
-            </View>
-            
-            {/* Bottom overlay */}
-            <View style={styles.overlaySection} />
+            {/* Guide text placed at bottom */}
+            <Text style={styles.guideText}>Take a photo of your outfit</Text>
           </View>
           
           {/* Camera Controls */}
@@ -448,29 +437,47 @@ const styles = StyleSheet.create({
   overlaySection: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   middleSection: {
     flexDirection: 'row',
     height: SCREEN_WIDTH * 1.33, // Aspect ratio 3:4
   },
-  frame: {
-    width: SCREEN_WIDTH * 0.8,
-    height: '100%',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-    justifyContent: 'flex-end',
+  silhouetteContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 20,
+    paddingHorizontal: 0, // Remove any horizontal padding
+  },
+  silhouetteImage: {
+    width: SCREEN_WIDTH * 1.4,
+    height: SCREEN_HEIGHT * 1.35,
+    opacity: 0.5,
+    transform: [{ translateY: -50 }],
   },
   guideText: {
     color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '500',
     textAlign: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     fontFamily: 'RobotoMono-Regular',
+    position: 'absolute',
+    bottom: 20,
+    zIndex: 10,
+  },
+  centerSilhouette: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 }); 

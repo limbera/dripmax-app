@@ -473,24 +473,6 @@ export default function OutfitDetailScreen() {
     }
   };
   
-  // Request storage permission when the component mounts
-  useEffect(() => {
-    const checkPermissions = async () => {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      setHasStoragePermission(status === 'granted');
-      
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please allow access to your photo library to save images.',
-          [{ text: 'OK' }]
-        );
-      }
-    };
-    
-    checkPermissions();
-  }, []);
-  
   // Share outfit function - updated to share an image
   const shareOutfit = async () => {
     try {
@@ -518,14 +500,13 @@ export default function OutfitDetailScreen() {
   // Save outfit function - updated to save an image
   const saveOutfit = async () => {
     try {
-      if (!hasStoragePermission) {
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permission Required', 'Please allow access to your photo library to save images.');
-          return;
-        }
-        setHasStoragePermission(true);
+      // Request permission only when user tries to save
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to your photo library to save images.');
+        return;
       }
+      setHasStoragePermission(true);
       
       if (!scoreCardRef.current || !scoreCardRef.current.capture) {
         Alert.alert('Error', 'Cannot capture image at this time.');
@@ -626,7 +607,7 @@ export default function OutfitDetailScreen() {
   }
   
   const { feedback } = outfit;
-  const outfitTitle = outfit.title || getScoreLabel(feedback.score || 7.8);
+  const outfitTitle = outfit.title || getScoreLabel(feedback.score || 0.0);
   
   // Mocked data structure based on the screenshots
   // In a real app, this would come from the API
@@ -689,7 +670,7 @@ export default function OutfitDetailScreen() {
                   {/* Progress bar */}
                   <View style={styles.progressBarContainer}>
                     <RatingProgressBar 
-                      rating={feedback.score || 7.8} 
+                      rating={feedback.score || 0.0} 
                       setDisplayedTitleScore={setDisplayedTitleScore}
                     />
                   </View>
@@ -711,7 +692,7 @@ export default function OutfitDetailScreen() {
                 icon="👔"
                 label="FIT" 
                 description="Well Proportioned"
-                score={feedback.fit_score || 7.5}
+                score={feedback.fit_score || 0.0}
                 onPress={() => setExpandedFit(!expandedFit)}
                 expanded={expandedFit}
                 analysisText={feedback.fit_analysis || "The jacket fits well, creating a structured silhouette, while the loose pants add a relaxed touch. The shirt underneath introduces an additional layer of interest with its extended length."}
@@ -723,7 +704,7 @@ export default function OutfitDetailScreen() {
                 icon="🎨"
                 label="COLOR" 
                 description="Excellent Palette"
-                score={feedback.color_score || 8.1}
+                score={feedback.color_score || 0.0}
                 onPress={() => setExpandedColor(!expandedColor)}
                 expanded={expandedColor}
                 analysisText={feedback.color_analysis || "The vibrant red jacket is a standout piece against the more subdued gray pants, creating a strong visual contrast. The striped shirt provides a playful yet cohesive element to the overall look."}
@@ -831,7 +812,7 @@ export default function OutfitDetailScreen() {
           {/* Optional title at the bottom */}
           <View style={styles.modalTitleContainer}>
             <Text style={styles.modalTitleText}>
-              {`${(feedback.score || 7.8).toFixed(1)}/10 - ${outfitTitle}`}
+              {`${(feedback.score || 0.0).toFixed(1)}/10 - ${outfitTitle}`}
             </Text>
             <Text style={styles.modalSubtitleText}>dripmax.app</Text>
           </View>
