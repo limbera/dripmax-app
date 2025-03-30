@@ -5,6 +5,7 @@ import { Colors } from '../../constants/Colors';
 import { useColorScheme } from '../../hooks/useColorScheme';
 import { useAuthStore } from '../../stores/authStore';
 import { navigationLogger, authLogger } from '../../utils/logger';
+import { useSubscription } from '../../hooks/useSubscription';
 
 export default function AuthCallback() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function AuthCallback() {
     isAuthenticated: !!state.session,
     isLoading: state.isLoading
   }));
+  const { hasActiveSubscription, isLoading: isSubscriptionLoading } = useSubscription();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -29,12 +31,22 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleNavigation = async () => {
       try {
-        navigationLogger.debug('Handling navigation', { isAuthenticated, isLoading });
+        navigationLogger.debug('Handling navigation', { 
+          isAuthenticated, 
+          isLoading,
+          hasActiveSubscription,
+          isSubscriptionLoading
+        });
         
-        if (!isLoading) {
+        if (!isLoading && !isSubscriptionLoading) {
           if (isAuthenticated) {
-            navigationLogger.info('Authenticated, navigating to protected area');
-            router.replace('/(protected)');
+            if (hasActiveSubscription) {
+              navigationLogger.info('Authenticated with subscription, navigating to protected area');
+              router.replace('/(protected)');
+            } else {
+              navigationLogger.info('Authenticated without subscription, navigating to onboarding');
+              router.replace('/(onboarding)/capture');
+            }
           } else {
             navigationLogger.info('Not authenticated, navigating to login');
             router.replace('/(auth)/login');
@@ -50,7 +62,7 @@ export default function AuthCallback() {
     };
 
     handleNavigation();
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, hasActiveSubscription, isSubscriptionLoading, router]);
 
   return (
     <View style={[

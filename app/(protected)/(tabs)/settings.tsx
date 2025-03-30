@@ -146,6 +146,8 @@ export default function SettingsScreen() {
       <StatusBar barStyle="light-content" backgroundColor="black" />
       <Stack.Screen 
         options={{
+          title: 'Settings',
+          headerLargeTitle: false,
           headerStyle: {
             backgroundColor: 'black',
           },
@@ -311,11 +313,13 @@ const styles = StyleSheet.create({
     fontFamily: 'RobotoMono-Regular',
   },
   pageTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     color: 'white',
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: 24,
+    marginBottom: 24,
     fontFamily: 'RobotoMono-Regular',
+    textAlign: 'left',
+    paddingLeft: 8,
   },
 }); 

@@ -1,14 +1,28 @@
 import React, { useCallback, useEffect } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet, SafeAreaView } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useAuth } from '../../hooks/useAuth';
+import { usePendingImageStore } from '../../stores/pendingImageStore';
 
 export default function PaywallScreen() {
   const router = useRouter();
-  const { currentOffering, isLoading, hasActiveSubscription } = useSubscription();
+  const { redirect } = useLocalSearchParams<{ redirect?: string }>();
+  const { currentOffering, isLoading, hasActiveSubscription, checkEntitlementStatus } = useSubscription();
   const { user } = useAuth();
+  const { pendingImageUri } = usePendingImageStore();
+
+  // Debug console logs to help track the issue
+  useEffect(() => {
+    console.log('[Paywall DEBUG] Current subscription status:', { 
+      hasActiveSubscription, 
+      isLoading,
+      redirect,
+      userId: user?.id,
+      hasPendingImage: !!pendingImageUri
+    });
+  }, [hasActiveSubscription, isLoading, redirect, user, pendingImageUri]);
 
   // Check if user already has a subscription when the screen is focused
   useFocusEffect(
@@ -35,10 +49,38 @@ export default function PaywallScreen() {
   };
 
   // Handle successful purchase
-  const handlePurchaseCompleted = useCallback(() => {
-    console.log('[Paywall] Purchase completed, navigating to protected area');
-    router.replace('/(protected)');
-  }, [router]);
+  const handlePurchaseCompleted = useCallback(async () => {
+    console.log('[Paywall] Purchase completed, refreshing subscription status and navigating');
+    
+    try {
+      // Refresh subscription status
+      await checkEntitlementStatus();
+      console.log('[Paywall] Subscription status refreshed after purchase:', { 
+        hasActiveSubscription,
+        hasPendingImage: !!pendingImageUri
+      });
+      
+      // Force immediate navigation to protected area with a small delay
+      // Use replaceAll to bypass navigation protection
+      setTimeout(() => {
+        console.log('[Paywall] Forcing navigation to protected area');
+        
+        // Let the AuthTransitionManager handle routing based on pending image
+        // We'll just navigate to the root protected area
+        // @ts-ignore - replaceAll is not in the type definitions but exists in the router
+        if (router.replaceAll) {
+          // @ts-ignore
+          router.replaceAll('/(protected)');
+        } else {
+          router.replace('/(protected)');
+        }
+      }, 500);
+    } catch (error) {
+      console.error('[Paywall] Error refreshing subscription status:', error);
+      // Navigate anyway
+      router.replace('/(protected)');
+    }
+  }, [router, checkEntitlementStatus, hasActiveSubscription, pendingImageUri]);
 
   // Handle successful restore
   const handleRestoreCompleted = useCallback(() => {
@@ -46,6 +88,14 @@ export default function PaywallScreen() {
     
     // If user has subscription after restore, go to protected area
     if (hasActiveSubscription) {
+      router.replace('/(protected)');
+    }
+  }, [hasActiveSubscription, router]);
+
+  // Check subscription status when component mounts
+  useEffect(() => {
+    if (hasActiveSubscription) {
+      console.log('[Paywall] User already has active subscription, redirecting to protected area');
       router.replace('/(protected)');
     }
   }, [hasActiveSubscription, router]);
@@ -62,6 +112,7 @@ export default function PaywallScreen() {
       switch (paywallResult) {
         case PAYWALL_RESULT.PURCHASED:
         case PAYWALL_RESULT.RESTORED:
+          // Always redirect to the protected area after successful purchase
           router.replace('/(protected)');
           return true;
         case PAYWALL_RESULT.NOT_PRESENTED:

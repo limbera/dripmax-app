@@ -11,6 +11,8 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { isAppleAuthAvailable, formatAppleUserData } from '../utils/appleAuth';
 import Constants from 'expo-constants';
 import { linkUserWithNotifications, unlinkUserFromNotifications } from '../utils/notificationUtils';
+import { useOutfitStore } from './outfitStore';
+import { useSubscriptionStore } from './subscriptionStore';
 
 // Define the WebBrowser result type to include the URL property
 interface WebBrowserAuthSessionResult {
@@ -436,12 +438,37 @@ export const useAuthStore = create<AuthState>()(
       set(state => { state.isLoading = true; state.error = null; });
       
       try {
+        // Signal that we're starting a sign-out process
+        // This will help the AuthTransitionManager to show the loading screen
+        const currentIsLoading = useAuthStore.getState().isLoading;
+        if (!currentIsLoading) {
+          set(state => { state.isLoading = true; });
+        }
+        
         // Unlink user from OneSignal
         await unlinkUserFromNotifications();
+        
+        // Reset subscription store
+        const resetSubscription = useSubscriptionStore.getState().resetUser;
+        await resetSubscription();
+        authLogger.debug('Subscription store reset');
+        
+        // Reset outfit store
+        useOutfitStore.setState({
+          outfits: [],
+          isLoading: false,
+          isRefreshing: false,
+          error: null,
+          lastFetched: null
+        });
+        authLogger.debug('Outfit store reset');
         
         // Sign out from Supabase
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
+        
+        // Add a small delay to ensure the transition manager has time to detect the sign-out
+        await new Promise(resolve => setTimeout(resolve, 300));
         
         set(state => {
           state.isLoading = false;

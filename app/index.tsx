@@ -1,69 +1,31 @@
-import { useEffect, useRef } from 'react';
-import { useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Redirect } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
+import { View, ActivityIndicator, Text } from 'react-native';
 
 export default function Index() {
-  const router = useRouter();
-  const { isAuthenticated, initialized } = useAuth();
-  const { hasActiveSubscription } = useSubscription();
-  // Add a mounted ref to track safe navigation
-  const isMounted = useRef(false);
-  // Track navigation attempt count
-  const navigationAttemptCount = useRef(0);
+  const { isAuthenticated, isLoading } = useAuth();
+  const { hasActiveSubscription, isLoading: isSubscriptionLoading } = useSubscription();
 
-  // Set mounted status after first render
-  useEffect(() => {
-    console.log('[INDEX] Component mounted');
-    isMounted.current = true;
-    return () => {
-      console.log('[INDEX] Component unmounted');
-      isMounted.current = false;
-    };
-  }, []);
+  if (isLoading || isSubscriptionLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'black' }}>
+        <ActivityIndicator size="large" color="#00FF77" />
+        <Text style={{ marginTop: 20, color: 'white', fontFamily: 'RobotoMono-Regular' }}>
+          Loading...
+        </Text>
+      </View>
+    );
+  }
 
-  useEffect(() => {
-    // Increment navigation attempt counter
-    const currentAttempt = ++navigationAttemptCount.current;
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
-    // Only proceed with navigation if component is mounted and auth is initialized
-    if (!isMounted.current || !initialized) {
-      console.log('[INDEX] Not ready for navigation yet, waiting...', { attempt: currentAttempt });
-      return;
-    }
+  if (hasActiveSubscription) {
+    return <Redirect href="/(protected)" />;
+  }
 
-    console.log('[INDEX] Preparing navigation', { 
-      isAuthenticated, 
-      hasActiveSubscription, 
-      attempt: currentAttempt 
-    });
-
-    // Use setTimeout to defer navigation to next tick to avoid React warnings
-    setTimeout(() => {
-      // Check if this is still the most recent navigation attempt
-      if (currentAttempt !== navigationAttemptCount.current) {
-        console.log('[INDEX] Skipping outdated navigation attempt', {
-          currentAttempt,
-          latestAttempt: navigationAttemptCount.current
-        });
-        return;
-      }
-
-      if (isAuthenticated) {
-        if (hasActiveSubscription) {
-          console.log('[INDEX] User has subscription, redirecting to protected area');
-          router.replace('/(protected)/(tabs)/drips');
-        } else {
-          console.log('[INDEX] User authenticated but needs subscription, redirecting to paywall');
-          router.replace('/(auth)/paywall' as any);
-        }
-      } else {
-        console.log('[INDEX] Redirecting to login');
-        router.replace('/(auth)/login');
-      }
-    }, 0);
-  }, [isAuthenticated, initialized, hasActiveSubscription, router]);
-
-  // Return null instead of a loading screen - the splash screen will be showing
-  return null;
+  return <Redirect href="/(onboarding)/capture" />;
 } 

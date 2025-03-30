@@ -27,7 +27,8 @@ module.exports = {
           ],
           NSCameraUsageDescription: "Allow Dripmax to access your camera to capture and analyze your outfits.",
           NSPhotoLibraryUsageDescription: "Allow Dripmax to access your photos to save and share your outfit captures.",
-          NSUserNotificationUsageDescription: "We'll send you updates about your outfits and new app features."
+          NSUserNotificationUsageDescription: "We'll send you updates about your outfits and new app features.",
+          NSLocationWhenInUseUsageDescription: "Dripmax needs access to your location to provide location-specific features and experiences."
         }
       },
       

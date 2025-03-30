@@ -29,6 +29,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as FaceDetector from 'expo-face-detector';
 import * as ImagePicker from 'expo-image-picker';
 import ActionButton from '../../../components/ActionButton';
+import { usePendingImageStore } from '../../../stores/pendingImageStore';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -56,6 +57,7 @@ export default function CameraScreen() {
   const { addOutfit, getOutfitWithFeedback } = useOutfitStore();
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const scanLinePosition = useRef(new Animated.Value(0)).current;
+  const { pendingImageUri, clearPendingImage } = usePendingImageStore();
 
   // Automatically request permission when component mounts
   useEffect(() => {
@@ -70,6 +72,21 @@ export default function CameraScreen() {
       router.back();
     }
   }, [permission, router]);
+
+  // Check for pending image from onboarding when component mounts
+  useEffect(() => {
+    if (pendingImageUri) {
+      cameraLogger.info('Found pending image from onboarding', { 
+        pendingImageUri: pendingImageUri.substring(0, 30) + '...' 
+      });
+      
+      // Set the pending image as the captured image
+      setCapturedImage(pendingImageUri);
+      
+      // Clear the pending image to avoid reloading it if user navigates away
+      clearPendingImage();
+    }
+  }, [pendingImageUri, clearPendingImage]);
 
   const toggleCameraFacing = () => {
     setCameraFacing(current => current === 'back' ? 'front' : 'back');

@@ -12,6 +12,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { navigationLogger } from '../utils/logger';
 import { notificationService } from '../services/notifications';
+import AuthTransitionManager from '../components/AuthTransitionManager';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -23,14 +24,17 @@ export default function RootLayout() {
   const isMounted = useRef(false);
   const [isReady, setIsReady] = useState(false);
   const [notificationsInitialized, setNotificationsInitialized] = useState(false);
+  const [useNewAuthTransition, setUseNewAuthTransition] = useState(true); // Enable the new transition manager
   
   // Load fonts
   const [fontsLoaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  // Always call useProtectedRoute, but pass isReady to control its behavior
-  useProtectedRoute();
+  // Only use the protected route hook if we're not using the new transition manager
+  if (!useNewAuthTransition) {
+    useProtectedRoute();
+  }
 
   // Set mounted status after first render
   useEffect(() => {
@@ -126,6 +130,8 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       {/* Use Slot for the initial render to prevent navigation errors */}
       <Slot />
+      {/* Add the new transition manager to handle navigation transitions */}
+      {useNewAuthTransition && <AuthTransitionManager />}
       <StatusBar style="auto" />
     </ThemeProvider>
   );
