@@ -23,15 +23,9 @@ export default function AuthLayout() {
         },
       }}
     >
-      {/* Hide header for paywall screens */}
+      {/* Hide header for paywall screen */}
       <Stack.Screen
         name="paywall"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="SuperwallPaywall"
         options={{
           headerShown: false,
         }}
