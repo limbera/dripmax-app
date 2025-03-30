@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Animated, Easing, StatusBar, SafeAreaView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
+import { navigateToPaywall } from '../../utils/paywallSelector';
 
 // Score labels based on rating (placeholder)
 const SCORE_LABELS = {
@@ -170,12 +171,9 @@ export default function ResultScreen() {
   const { image } = useLocalSearchParams<{ image: string }>();
   
   const handleSubscribe = () => {
-    // Navigate directly to paywall
+    // Navigate directly to paywall using our utility
     console.log('[Results] Navigating to paywall');
-    // Use push to force a clean navigation
-    router.push({
-      pathname: '/(auth)/paywall'
-    });
+    navigateToPaywall();
   };
   
   const handleRetake = () => {

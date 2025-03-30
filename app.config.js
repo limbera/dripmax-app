@@ -1,5 +1,18 @@
 // app.config.js
-module.exports = {
+module.exports = ({ config }) => {
+  // Function to return platform-specific values
+  const getRevenueCatApiKeyForSuperwall = () => {
+    if (process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY && process.platform === 'darwin') {
+      return process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY;
+    } else if (process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY && process.platform === 'linux') {
+      return process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY;
+    }
+    // Default to iOS if we can't determine platform or for web
+    return process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY || '';
+  };
+
+  return {
+    ...config,
     expo: {
       name: "Dripmax",
       slug: "dripmax-app",
@@ -101,9 +114,12 @@ module.exports = {
         authRedirectUrl: process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL,
         revenuecatAppleApiKey: process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY,
         revenuecatGoogleApiKey: process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY,
-        oneSignalAppId: process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID
+        oneSignalAppId: process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID,
+        superwallApiKey: process.env.EXPO_PUBLIC_SUPERWALL_API_KEY,
+        revenuecatSuperwallApiKey: getRevenueCatApiKeyForSuperwall()
       },
       
       owner: "limbera"
     }
   };
+};
