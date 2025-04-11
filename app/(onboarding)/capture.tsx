@@ -30,6 +30,7 @@ export default function CaptureScreen() {
   const [cameraFacing, setCameraFacing] = useState<'back' | 'front'>('back');
   const [flashMode, setFlashMode] = useState<boolean>(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   
   const cameraRef = useRef(null);
   const router = useRouter();
@@ -248,85 +249,91 @@ export default function CaptureScreen() {
       <StatusBar barStyle="light-content" />
       
       {/* Camera View (show only if no image is captured) */}
-      {!capturedImage && (
-        <CameraView
-          ref={cameraRef}
-          style={styles.camera}
-          facing={cameraFacing}
-          enableTorch={flashMode}
-        >
-          {/* Simplified overlay with just the silhouette image */}
-          <View style={styles.centerSilhouette}>
-            {/* Silhouette image centered */}
-            <Image 
-              source={require('../../assets/images/silhouette-overlay.png')} 
-              style={styles.silhouetteImage}
-              resizeMode="contain"
-            />
+      {!isCameraReady && (
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color="#00FF77" />
+          <Text style={{ color: 'white', marginTop: 20 }}>Initializing camera...</Text>
+        </View>
+      )}
+      
+      <CameraView
+        ref={cameraRef}
+        style={styles.camera}
+        facing={cameraFacing}
+        flash={flashMode ? 'on' : 'off'}
+        onCameraReady={() => setIsCameraReady(true)}
+      >
+        {/* Simplified overlay with just the silhouette image */}
+        <View style={styles.centerSilhouette}>
+          {/* Silhouette image centered */}
+          <Image 
+            source={require('../../assets/images/silhouette-overlay.png')} 
+            style={styles.silhouetteImage}
+            resizeMode="contain"
+          />
+          
+          {/* Guide text placed at bottom */}
+          <Text style={styles.guideText}>Take a photo of your outfit</Text>
+        </View>
+        
+        {/* Camera Controls */}
+        <SafeAreaView style={styles.controls}>
+          {/* Top controls row */}
+          <View style={styles.topControlsRow}>
+            {/* Flash toggle - Left */}
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={toggleFlash}
+            >
+              <Ionicons 
+                name={flashMode ? 'flash' : 'flash-off'} 
+                size={24} 
+                color="white" 
+              />
+            </TouchableOpacity>
             
-            {/* Guide text placed at bottom */}
-            <Text style={styles.guideText}>Take a photo of your outfit</Text>
+            {/* Close button - Right */}
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="close" size={24} color="white" />
+            </TouchableOpacity>
           </View>
           
-          {/* Camera Controls */}
-          <SafeAreaView style={styles.controls}>
-            {/* Top controls row */}
-            <View style={styles.topControlsRow}>
-              {/* Flash toggle - Left */}
-              <TouchableOpacity
-                style={styles.controlButton}
-                onPress={toggleFlash}
-              >
-                <Ionicons 
-                  name={flashMode ? 'flash' : 'flash-off'} 
-                  size={24} 
-                  color="white" 
-                />
-              </TouchableOpacity>
-              
-              {/* Close button - Right */}
-              <TouchableOpacity
-                style={styles.controlButton}
-                onPress={() => router.back()}
-              >
-                <Ionicons name="close" size={24} color="white" />
-              </TouchableOpacity>
-            </View>
+          {/* Bottom controls row */}
+          <View style={styles.bottomControlsRow}>
+            {/* Camera roll button - Left */}
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={pickImage}
+            >
+              <Ionicons name="images-outline" size={24} color="white" />
+            </TouchableOpacity>
             
-            {/* Bottom controls row */}
-            <View style={styles.bottomControlsRow}>
-              {/* Camera roll button - Left */}
-              <TouchableOpacity
-                style={styles.controlButton}
-                onPress={pickImage}
-              >
-                <Ionicons name="images-outline" size={24} color="white" />
-              </TouchableOpacity>
-              
-              {/* Capture Button - Center */}
-              <TouchableOpacity
-                disabled={isCapturing}
-                style={styles.captureButton}
-                onPress={takePicture}
-              >
-                {isCapturing ? (
-                  <ActivityIndicator size="large" color="#00FF77" />
-                ) : (
-                  <View style={styles.captureInner} />
-                )}
-              </TouchableOpacity>
-              
-              {/* Camera flip - Right */}
-              <TouchableOpacity
-                style={styles.controlButton}
-                onPress={toggleCameraFacing}
-              >
-                <Ionicons name="sync-outline" size={24} color="white" />
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </CameraView>
-      )}
+            {/* Capture Button - Center */}
+            <TouchableOpacity
+              disabled={isCapturing}
+              style={styles.captureButton}
+              onPress={takePicture}
+            >
+              {isCapturing ? (
+                <ActivityIndicator size="large" color="#00FF77" />
+              ) : (
+                <View style={styles.captureInner} />
+              )}
+            </TouchableOpacity>
+            
+            {/* Camera flip - Right */}
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={toggleCameraFacing}
+            >
+              <Ionicons name="sync-outline" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </CameraView>
     </View>
   );
 }

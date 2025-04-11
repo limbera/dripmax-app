@@ -27,7 +27,7 @@ export default function LoginScreen() {
   
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       
       <Stack.Screen 
         options={{ 
@@ -36,57 +36,67 @@ export default function LoginScreen() {
         }} 
       />
 
-      {/* Logo Area */}
-      <View style={styles.logoContainer}>
+      {/* Header Section with Logo and Catchphrase */}
+      <View style={styles.header}>
         <Text style={styles.title}>
           dripmax
         </Text>
-        <Text style={styles.subtitle}>
-          AI-powered fashion analysis
+        <Text style={styles.catchphrase}>
+          Rate your outfit out of 10.
         </Text>
       </View>
       
-      {/* Buttons Area */}
-      <View style={styles.buttonContainer}>
-        {/* Google Sign In Button */}
-        <TouchableOpacity 
-          style={styles.authButton}
-          onPress={signInWithGoogle}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <>
-              <View style={styles.buttonIconContainer}>
-                <Ionicons name="logo-google" size={24} color="white" />
-              </View>
-              <Text style={styles.authButtonText}>
-                Sign in with Google
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-        
-        {/* Apple Sign In Button */}
-        <TouchableOpacity 
-          style={styles.authButton}
-          onPress={signInWithApple}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <>
-              <View style={styles.buttonIconContainer}>
+      {/* Phone Preview Area */}
+      <View style={styles.phonePreview}>
+        <Image 
+          source={require('../../assets/images/phone-placeholder.png')} 
+          style={styles.phoneMockup}
+          resizeMode="contain"
+        />
+      </View>
+      
+      {/* Auth Buttons Area */}
+      <View style={styles.authSection}>
+        <View style={styles.continueWithContainer}>
+          <View style={styles.continueWithLine} />
+          <Text style={styles.continueText}>continue with</Text>
+          <View style={styles.continueWithLine} />
+        </View>
+        <View style={styles.buttonsRow}>
+          <TouchableOpacity 
+            style={styles.authButton}
+            onPress={signInWithApple}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <View style={styles.buttonContent}>
                 <Ionicons name="logo-apple" size={24} color="white" />
+                <Text style={styles.authButtonText}>
+                  Apple
+                </Text>
               </View>
-              <Text style={styles.authButtonText}>
-                Sign in with Apple
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.authButton}
+            onPress={signInWithGoogle}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <View style={styles.buttonContent}>
+                <Ionicons name="logo-google" size={24} color="white" />
+                <Text style={styles.authButtonText}>
+                  Google
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
       
       {error && (
@@ -98,11 +108,11 @@ export default function LoginScreen() {
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          By continuing, you agree to our{' '}
+          By continuing, you accept our{' '}
           <Text style={styles.linkText} onPress={handleTerms}>
             Terms of Service
           </Text>
-          {' '}and{' '}
+          {' '}and acknowledge receipt of our{' '}
           <Text style={styles.linkText} onPress={handlePrivacy}>
             Privacy Policy
           </Text>
@@ -122,50 +132,85 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
     padding: 20,
   },
-  logoContainer: {
+  header: {
+    width: '100%',
+    flexDirection: 'column',
     alignItems: 'center',
-    marginTop: height * 0.15,
+    marginTop: height * 0.05,
+    marginBottom: 30,
   },
   title: {
     fontFamily: 'RobotoMono',
-    fontSize: 48,
+    fontSize: 36,
     fontWeight: 'bold',
     fontStyle: 'italic',
     color: '#00FF77',
     marginBottom: 10,
   },
-  subtitle: {
+  catchphrase: {
     color: 'white',
     fontSize: 16,
+    textAlign: 'center',
     opacity: 0.8,
+    maxWidth: '80%',
   },
-  buttonContainer: {
-    width: '100%',
+  phonePreview: {
     alignItems: 'center',
     justifyContent: 'center',
+    height: height * 0.5,
+    marginBottom: 30,
   },
-  authButton: {
+  phoneMockup: {
+    width: width * 0.8,
+    height: height * 0.5,
+  },
+  authSection: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  continueWithContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+  },
+  continueWithLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#333',
+  },
+  continueText: {
+    color: '#666',
+    fontSize: 16,
+    textAlign: 'center',
+    paddingHorizontal: 10,
+    opacity: 1,
+  },
+  buttonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  authButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: 'black',
     borderWidth: 1,
     borderColor: '#00FF77',
-    width: width * 0.8,
+    width: '48%',
     marginVertical: 10,
-    borderRadius: 100,
-    padding: 20,
+    borderRadius: 5,
+    padding: 15,
   },
-  buttonIconContainer: {
-    width: 40,
-    alignItems: 'flex-start',
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   authButtonText: {
     color: 'white',
     fontWeight: '600',
-    fontFamily: 'RobotoMono-Regular',
-    flex: 1,
-    textAlign: 'center',
-    marginRight: 40, // To balance the icon width and keep text centered
+    marginLeft: 10,
   },
   errorText: {
     color: '#FF0088',
@@ -174,15 +219,15 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginBottom: 40,
-    width: '80%',
+    width: '100%',
   },
   footerText: {
     color: '#666',
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: 14,
   },
   linkText: {
-    color: '#999',
+    color: '#666',
     textDecorationLine: 'underline',
   },
 }); 

@@ -1,167 +1,333 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Animated, Easing, StatusBar, SafeAreaView } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, StatusBar, Dimensions, SafeAreaView, Animated, Easing } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
-// Score labels based on rating (placeholder)
-const SCORE_LABELS = {
-  1: 'Fashion Emergency',
-  2: 'Needs Work ASAP',
-  3: 'Back to Basics',
-  4: 'Almost There...',
-  5: 'Midway to Style',
-  6: 'The Effort Was...',
-  7: 'Getting Iconic',
-  8: 'Absolutely Slaying',
-  9: 'Main Character',
-  10: 'God Tier No Notes'
-} as const;
+// Get screen dimensions
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Component for a section header with icon
-const SectionHeader = ({ 
-  title, 
-  emoji,
-  color = '#00FF77'
-}: { 
-  title: string, 
-  emoji: string,
-  color?: string
-}) => {
+// Component for the score meter that spans two columns
+const FullWidthScoreMeter = ({ label, onPress }: { label: string, onPress?: () => void }) => {
   return (
-    <View style={styles.sectionHeaderContainer}>
-      <Text style={styles.sectionHeaderEmoji}>{emoji}</Text>
-      <Text style={[
-        styles.sectionHeaderText,
-        { color: 'white', fontFamily: 'RobotoMono-Regular' }
-      ]}>{title}</Text>
-    </View>
+    <TouchableOpacity 
+      style={styles.fullWidthMeterContainer}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.scoreMeterLabel}>{label}</Text>
+      <View style={styles.scorePlaceholder}>
+        <Ionicons name="lock-closed" size={16} color="#666" style={styles.lockIcon} />
+        <Text style={styles.lockedScoreText}>Unlock with Pro</Text>
+      </View>
+      <View style={styles.scoreMeterLine}>
+        <View style={styles.scoreMeterBackground} />
+        <View style={styles.scoreMeterFill} />
+      </View>
+    </TouchableOpacity>
   );
 };
 
-// Component for tag/chip items
-const TagItem = ({ label }: { label: string }) => {
+// Component for the regular score meter line
+const ScoreMeterLine = ({ label, onPress }: { label: string, onPress?: () => void }) => {
   return (
-    <View style={[
-      styles.tagItem,
-      { backgroundColor: '#333' }
-    ]}>
-      <Text style={[
-        styles.tagItemText,
-        { color: 'white', fontFamily: 'RobotoMono-Regular' }
-      ]}>{label}</Text>
-    </View>
+    <TouchableOpacity 
+      style={styles.scoreMeterContainer}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.scoreMeterLabel}>{label}</Text>
+      <View style={styles.scorePlaceholder}>
+        <Ionicons name="lock-closed" size={16} color="#666" style={styles.lockIcon} />
+        <Text style={styles.lockedScoreText}>Unlock with Pro</Text>
+      </View>
+      <View style={styles.scoreMeterLine}>
+        <View style={styles.scoreMeterBackground} />
+        <View style={styles.scoreMeterFill} />
+      </View>
+    </TouchableOpacity>
   );
 };
 
-// Component for the rating progress bar with ? instead of a score
-const RatingProgressBar = () => {
-  const animatedWidth = useRef(new Animated.Value(0)).current;
-  const [displayedScore, setDisplayedScore] = useState('?');
-  const animatedColor = useRef(new Animated.Value(5)).current; // Neutral color (mid range)
+// Component for locked feature card
+const LockedFeatureCard = ({ title, icon, onPress }: { title: string, icon: string, onPress?: () => void }) => {
+  return (
+    <TouchableOpacity 
+      style={styles.lockedFeatureCard}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.lockedFeatureHeader}>
+        <Text style={styles.lockedFeatureIcon}>{icon}</Text>
+        <Text style={styles.lockedFeatureTitle}>{title}</Text>
+      </View>
+      <View style={styles.lockedFeatureContent}>
+        <Ionicons name="lock-closed" size={18} color="#666" style={styles.lockIcon} />
+        <Text style={styles.lockedFeatureText}>Unlock with Pro</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// Chevron sequence animation component
+const ChevronSequence = () => {
+  // Animation values
+  const chevron1Opacity = useRef(new Animated.Value(0.2)).current;
+  const chevron2Opacity = useRef(new Animated.Value(0.2)).current;
+  const chevron3Opacity = useRef(new Animated.Value(0.2)).current;
+  const chevron1Scale = useRef(new Animated.Value(1)).current;
+  const chevron2Scale = useRef(new Animated.Value(1)).current;
+  const chevron3Scale = useRef(new Animated.Value(1)).current;
   
-  // Animate the progress bar on mount - just a preview animation
+  // Setup animation when component mounts
   useEffect(() => {
-    Animated.parallel([
-      // Animate the width to 40% (partial preview)
-      Animated.timing(animatedWidth, {
-        toValue: 40,
-        duration: 2000,
-        easing: Easing.bezier(0.5, 0, 0.005, 1),
-        useNativeDriver: false,
-      }),
-      // Animate with a neutral color
-      Animated.timing(animatedColor, {
-        toValue: 5,
-        duration: 2000,
-        easing: Easing.bezier(0.5, 0, 0.005, 1),
-        useNativeDriver: false,
-      })
-    ]).start();
+    animateChevronSequence();
+    
+    return () => {
+      // Cleanup animations
+      chevron1Opacity.stopAnimation();
+      chevron2Opacity.stopAnimation();
+      chevron3Opacity.stopAnimation();
+      chevron1Scale.stopAnimation();
+      chevron2Scale.stopAnimation();
+      chevron3Scale.stopAnimation();
+    };
   }, []);
   
-  // Interpolate color based on current animated score
-  const backgroundColor = animatedColor.interpolate({
-    inputRange: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    outputRange: [
-      '#AAAAAA', // Gray for 0
-      '#CC0000', // Very dark red for 1
-      '#E62020', // Dark red for 2
-      '#FF4040', // Bright red for 3
-      '#FF6633', // Orange-red for 4
-      '#FF9933', // Dark orange for 5
-      '#FFBB33', // Orange-yellow for 6
-      '#FFDD00', // Gold for 7
-      '#80FF99', // Pale green for 8
-      '#40FF88', // Light green for 9
-      '#00FF77'  // Bright green for 10
-    ]
+  // Animation for the chevron sequence
+  const animateChevronSequence = () => {
+    Animated.sequence([
+      // First chevron lights up with pulse
+      Animated.parallel([
+        Animated.timing(chevron1Opacity, { 
+          toValue: 1, 
+          duration: 80, 
+          useNativeDriver: true 
+        }),
+        Animated.sequence([
+          // Scale up quickly
+          Animated.timing(chevron1Scale, {
+            toValue: 1.3,
+            duration: 60,
+            useNativeDriver: true
+          }),
+          // Scale back down
+          Animated.timing(chevron1Scale, {
+            toValue: 1,
+            duration: 60,
+            useNativeDriver: true
+          })
+        ])
+      ]),
+      // Shorter pause
+      Animated.delay(10),
+      
+      // Second chevron lights up with pulse
+      Animated.parallel([
+        Animated.timing(chevron2Opacity, { 
+          toValue: 1, 
+          duration: 80, 
+          useNativeDriver: true 
+        }),
+        Animated.sequence([
+          // Scale up quickly
+          Animated.timing(chevron2Scale, {
+            toValue: 1.3,
+            duration: 60,
+            useNativeDriver: true
+          }),
+          // Scale back down
+          Animated.timing(chevron2Scale, {
+            toValue: 1,
+            duration: 60,
+            useNativeDriver: true
+          })
+        ])
+      ]),
+      // Shorter pause
+      Animated.delay(10),
+      
+      // Third chevron lights up with pulse
+      Animated.parallel([
+        Animated.timing(chevron3Opacity, { 
+          toValue: 1, 
+          duration: 80, 
+          useNativeDriver: true 
+        }),
+        Animated.sequence([
+          // Scale up quickly
+          Animated.timing(chevron3Scale, {
+            toValue: 1.3,
+            duration: 60,
+            useNativeDriver: true
+          }),
+          // Scale back down
+          Animated.timing(chevron3Scale, {
+            toValue: 1,
+            duration: 60,
+            useNativeDriver: true
+          })
+        ])
+      ]),
+      // Shorter pause when all are lit (reduced from 1000ms to 300ms)
+      Animated.delay(300),
+      
+      // All chevrons turn off at the same time
+      Animated.parallel([
+        // First chevron
+        Animated.parallel([
+          Animated.timing(chevron1Opacity, { 
+            toValue: 0.2, 
+            duration: 120, 
+            useNativeDriver: true 
+          }),
+          Animated.sequence([
+            // Scale down quickly
+            Animated.timing(chevron1Scale, {
+              toValue: 0.7,
+              duration: 80,
+              useNativeDriver: true
+            }),
+            // Scale back to normal
+            Animated.timing(chevron1Scale, {
+              toValue: 1,
+              duration: 80,
+              useNativeDriver: true
+            })
+          ])
+        ]),
+        
+        // Second chevron
+        Animated.parallel([
+          Animated.timing(chevron2Opacity, { 
+            toValue: 0.2, 
+            duration: 120, 
+            useNativeDriver: true 
+          }),
+          Animated.sequence([
+            // Scale down quickly
+            Animated.timing(chevron2Scale, {
+              toValue: 0.7,
+              duration: 80,
+              useNativeDriver: true
+            }),
+            // Scale back to normal
+            Animated.timing(chevron2Scale, {
+              toValue: 1,
+              duration: 80,
+              useNativeDriver: true
+            })
+          ])
+        ]),
+        
+        // Third chevron
+        Animated.parallel([
+          Animated.timing(chevron3Opacity, { 
+            toValue: 0.2, 
+            duration: 120, 
+            useNativeDriver: true 
+          }),
+          Animated.sequence([
+            // Scale down quickly
+            Animated.timing(chevron3Scale, {
+              toValue: 0.7,
+              duration: 80,
+              useNativeDriver: true
+            }),
+            // Scale back to normal
+            Animated.timing(chevron3Scale, {
+              toValue: 1,
+              duration: 80,
+              useNativeDriver: true
+            })
+          ])
+        ])
+      ]),
+      
+      // Shorter pause before restarting (reduced from 1000ms to 300ms)
+      Animated.delay(300),
+    ]).start(() => {
+      animateChevronSequence();
+    });
+  };
+  
+  return (
+    <View style={styles.chevronContainer}>
+      <Animated.View style={[
+        styles.chevronWrapper, 
+        { 
+          opacity: chevron1Opacity,
+          transform: [{ scale: chevron1Scale }]
+        }
+      ]}>
+        <Ionicons name="chevron-forward" size={24} color="black" />
+      </Animated.View>
+      <Animated.View style={[
+        styles.chevronWrapper, 
+        { 
+          opacity: chevron2Opacity,
+          transform: [{ scale: chevron2Scale }]
+        }
+      ]}>
+        <Ionicons name="chevron-forward" size={24} color="black" />
+      </Animated.View>
+      <Animated.View style={[
+        styles.chevronWrapper, 
+        { 
+          opacity: chevron3Opacity,
+          transform: [{ scale: chevron3Scale }]
+        }
+      ]}>
+        <Ionicons name="chevron-forward" size={24} color="black" />
+      </Animated.View>
+    </View>
+  );
+};
+
+// Waving hand emoji animation
+const WavingHand = () => {
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    // Create the waving animation sequence
+    Animated.loop(
+      Animated.sequence([
+        // Rotate 25 degrees clockwise (increased from 15)
+        Animated.timing(rotateAnim, {
+          toValue: 25,
+          duration: 300,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        // Shorter pause at peak (halved from 150ms to 75ms)
+        Animated.delay(75),
+        // Rotate back to 0 degrees
+        Animated.timing(rotateAnim, {
+          toValue: 0,
+          duration: 300,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        // Much longer pause at baseline
+        Animated.delay(600),
+      ])
+    ).start();
+  }, []);
+  
+  // Convert rotation value to degrees
+  const rotate = rotateAnim.interpolate({
+    inputRange: [0, 25], 
+    outputRange: ['0deg', '25deg'],
   });
   
   return (
-    <View style={styles.ratingContainer}>
-      <View style={styles.ratingBarContainer}>
-        <View style={styles.ratingBackground} />
-        
-        {/* Divider lines */}
-        <View style={[styles.dividerLine, { left: '20%' }]} />
-        <View style={[styles.dividerLine, { left: '40%' }]} />
-        <View style={[styles.dividerLine, { left: '60%' }]} />
-        <View style={[styles.dividerLine, { left: '80%' }]} />
-        
-        <Animated.View 
-          style={[
-            styles.ratingForeground, 
-            { 
-              width: animatedWidth.interpolate({
-                inputRange: [0, 100],
-                outputRange: ['0%', '100%'],
-              }),
-              backgroundColor: backgroundColor
-            }
-          ]} 
-        />
-        <Animated.View 
-          style={[
-            styles.ratingCircle, 
-            { 
-              left: animatedWidth.interpolate({
-                inputRange: [0, 100],
-                outputRange: ['0%', '100%'],
-              }),
-              backgroundColor: backgroundColor
-            }
-          ]}
-        >
-          <Text style={styles.ratingValue}>{displayedScore}</Text>
-        </Animated.View>
-      </View>
-    </View>
-  );
-};
-
-// Component for a sub-score indicator with subscription message
-const SubScoreIndicator = ({ 
-  icon, 
-  label, 
-  color = '#FFBB33'
-}: { 
-  icon: string, 
-  label: string, 
-  color?: string
-}) => {
-  return (
-    <View style={styles.subScoreRow}>
-      <View style={styles.subScoreTextColumn}>
-        <View style={styles.labelRow}>
-          <Text style={styles.subScoreEmoji}>{icon}</Text>
-          <Text style={styles.subScoreLabel}>{label}</Text>
-        </View>
-        <Text style={styles.subScoreDescription}>
-          Subscribe to unlock detailed analysis
-        </Text>
-      </View>
-      <Text style={[styles.subScoreNumber, { color }]}>?</Text>
-    </View>
+    <Animated.Text 
+      style={[
+        styles.emojiIcon,
+        { transform: [{ rotate }] }
+      ]}
+    >
+      👋
+    </Animated.Text>
   );
 };
 
@@ -172,15 +338,9 @@ export default function ResultScreen() {
   const handleSubscribe = () => {
     // Navigate directly to paywall
     console.log('[Results] Navigating to paywall');
-    // Use push to force a clean navigation
     router.push({
       pathname: '/(auth)/paywall'
     });
-  };
-  
-  const handleRetake = () => {
-    // Go back to capture
-    router.push('/(onboarding)/capture');
   };
 
   if (!image) {
@@ -191,9 +351,9 @@ export default function ResultScreen() {
         </Text>
         <TouchableOpacity 
           style={{ backgroundColor: '#333', padding: 12, borderRadius: 20 }}
-          onPress={handleRetake}
+          onPress={() => router.back()}
         >
-          <Text style={{ color: 'white', fontFamily: 'RobotoMono-Regular' }}>Take a Photo</Text>
+          <Text style={{ color: 'white', fontFamily: 'RobotoMono-Regular' }}>Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -203,104 +363,68 @@ export default function ResultScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-        {/* Main Score Card */}
-        <View style={styles.scoreCard}>
-          <View style={styles.scoreCardContent}>
-            {/* Top Section with Image and Score */}
-            <View style={styles.compactTopSection}>
-              <View style={styles.compactImageContainer}>
-                <Image 
-                  source={{ uri: image }}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="cover"
-                />
-              </View>
-              
-              <View style={styles.compactScoreContainer}>
-                <Text style={styles.cardTitle}>?/10</Text>
-                <Text style={styles.cardSubtitle}>Subscribe to See Score</Text>
-                
-                <View style={styles.progressBarContainer}>
-                  <RatingProgressBar />
-                </View>
-              </View>
-            </View>
-            
-            <View style={styles.compactDivider} />
-            
-            {/* Overall Analysis Text */}
-            <Text style={[styles.sectionText, { marginBottom: 12 }]}>
-              Subscribe to Dripmax Pro to see detailed analysis of your outfit
-            </Text>
-            
-            <View style={styles.compactDivider} />
-            
-            {/* Sub Scores */}
-            <SubScoreIndicator 
-              icon="👕" 
-              label="Fit" 
-              color="#FFBB33"
-            />
-            
-            <View style={styles.compactSubScoreDivider} />
-            
-            <SubScoreIndicator 
-              icon="🎨" 
-              label="Color" 
-              color="#FF9933"
-            />
-            
-            <View style={styles.compactDivider} />
-            
-            {/* Subscribe Button */}
-            <TouchableOpacity 
-              style={styles.subscribeButton}
-              onPress={handleSubscribe}
-            >
-              <Text style={styles.subscribeButtonText}>Get Dripmax Pro</Text>
-            </TouchableOpacity>
-          </View>
+      {/* Scrollable Content */}
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Title Section */}
+        <View style={styles.titleContainer}>
+          <Text style={styles.titleText}>👀 Reveal Your Results</Text>
         </View>
         
-        {/* Additional sections that require subscription */}
-        <View style={styles.section}>
-          <SectionHeader 
-            title="STYLING TIPS" 
-            emoji="✨"
+        {/* Profile Photo */}
+        <View style={styles.profileContainer}>
+          <Image 
+            source={{ uri: image }}
+            style={styles.profileImage}
+            resizeMode="cover"
           />
-          <Text style={styles.sectionText}>
-            Subscribe to Dripmax Pro to see personalized styling tips for your outfit
-          </Text>
         </View>
         
-        <View style={styles.section}>
-          <SectionHeader 
-            title="PERFECT FOR" 
-            emoji="🎯"
-          />
-          <View style={styles.tagsContainer}>
-            <TagItem label="Subscribe to see" />
-            <TagItem label="occasion recommendations" />
+        {/* Score Meters */}
+        <TouchableOpacity 
+          style={styles.scoreCard}
+          onPress={handleSubscribe}
+          activeOpacity={0.7}
+        >
+          <View style={styles.overallHeader}>
+            <Text style={styles.overallHeaderIcon}>🏆</Text>
+            <Text style={styles.overallHeaderTitle}>YOUR RATING</Text>
           </View>
-        </View>
-        
-        <View style={styles.section}>
-          <SectionHeader 
-            title="SUGGESTED ITEMS" 
-            emoji="🛍️"
-          />
-          <View style={styles.tagsContainer}>
-            <TagItem label="Subscribe to see" />
-            <TagItem label="item suggestions" />
+          
+          {/* Full Width Overall Meter */}
+          <View style={styles.scoreRow}>
+            <FullWidthScoreMeter label="Overall" onPress={handleSubscribe} />
           </View>
-        </View>
+          
+          <View style={styles.scoreRow}>
+            <ScoreMeterLine label="Fit" onPress={handleSubscribe} />
+            <ScoreMeterLine label="Color" onPress={handleSubscribe} />
+          </View>
+        </TouchableOpacity>
         
-        {/* App signature */}
-        <View style={styles.appSignature}>
-          <Text style={styles.signatureText}>dripmax.app</Text>
-        </View>
+        {/* Feature Cards */}
+        <LockedFeatureCard title="STYLING TIPS" icon="✨" onPress={handleSubscribe} />
+        <LockedFeatureCard title="SUGGESTED ITEMS" icon="🛍️" onPress={handleSubscribe} />
+        
+        {/* Bottom Padding to Ensure Content Scrolls Above Fixed Button */}
+        <View style={styles.bottomPadding} />
       </ScrollView>
+      
+      {/* Fixed CTA Button at Bottom */}
+      <SafeAreaView style={styles.fixedButtonContainer}>
+        <TouchableOpacity 
+          style={styles.ctaButton}
+          onPress={handleSubscribe}
+        >
+          <View style={styles.ctaContent}>
+            <Text style={styles.ctaText}>GET DRIPMAX PRO</Text>
+            <WavingHand />
+          </View>
+        </TouchableOpacity>
+      </SafeAreaView>
     </View>
   );
 }
@@ -315,220 +439,204 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  contentContainer: {
-    paddingBottom: 30, // Reduced padding since we removed the footer
-  },
-  // Score card styles
-  scoreCard: {
-    marginHorizontal: 16,
-    marginVertical: 12,
-    borderRadius: 16,
-    backgroundColor: '#222222',
-    overflow: 'hidden',
-  },
-  scoreCardContent: {
-    padding: 12,
-  },
-  compactTopSection: {
-    flexDirection: 'row',
-    marginBottom: 14,
-  },
-  compactImageContainer: {
-    width: '40%',
-    aspectRatio: 3/4,
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#444444',
-    marginRight: 12,
-  },
-  compactScoreContainer: {
+  scrollContainer: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: 'black',
   },
-  cardTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: 'white',
-    fontFamily: 'RobotoMono-Regular',
-    marginBottom: 2,
-  },
-  cardSubtitle: {
-    fontSize: 16,
-    color: '#BBBBBB',
-    fontFamily: 'RobotoMono-Regular',
-  },
-  progressBarContainer: {
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  compactDivider: {
-    height: 1,
-    backgroundColor: '#444444',
-    marginVertical: 14,
-  },
-  compactSubScoreDivider: {
-    height: 1,
-    backgroundColor: '#444444',
-    marginVertical: 12,
-  },
-  // Rating progress bar styles
-  ratingContainer: {
-    paddingHorizontal: 0,
-    marginTop: 12,
-  },
-  ratingBarContainer: {
-    height: 40,
-    position: 'relative',
-  },
-  ratingBackground: {
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
-    position: 'relative',
-    top: 15,
-  },
-  dividerLine: {
-    position: 'absolute',
-    width: 1,
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    top: 15,
-  },
-  ratingForeground: {
-    position: 'absolute',
-    height: 8,
-    top: 15,
-    left: 0,
-    borderRadius: 4,
-  },
-  ratingCircle: {
-    position: 'absolute',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: -18, // Half of width to center
-    top: 0,
-  },
-  ratingValue: {
-    color: 'black',
-    fontSize: 18,
-    fontWeight: 'bold',
-    fontFamily: 'RobotoMono-Regular',
-  },
-  // Subscription button
-  subscribeButton: {
-    backgroundColor: '#00FF77',
-    paddingVertical: 16,
+  scrollContentContainer: {
+    paddingVertical: 30,
     paddingHorizontal: 20,
-    borderRadius: 30,
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 6,
   },
-  subscribeButtonText: {
-    color: 'black',
-    fontSize: 16,
+  // Title Section
+  titleContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 24,
+    marginTop: 40,
+  },
+  titleText: {
+    color: 'white',
+    fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'RobotoMono-Regular',
   },
-  // Sub-score styles
-  subScoreRow: {
+  // Profile Photo
+  profileContainer: {
+    width: SCREEN_WIDTH * 0.35,
+    aspectRatio: 1,
+    marginBottom: 30,
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 100,
+    borderWidth: 2,
+    borderColor: '#222',
+  },
+  // Score Card
+  scoreCard: {
+    width: '100%',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  },
+  scoreRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
+    marginBottom: 20,
   },
-  subScoreTextColumn: {
-    flex: 1,
+  // Regular score meter styles
+  scoreMeterContainer: {
+    width: '48%',
+    position: 'relative',
   },
-  labelRow: {
+  fullWidthMeterContainer: {
+    width: '100%',
+    position: 'relative',
+  },
+  scoreMeterLabel: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: 'RobotoMono-Regular',
+    marginBottom: 6,
+  },
+  scorePlaceholder: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
+    marginBottom: 8,
   },
-  subScoreEmoji: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-  subScoreLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
+  lockedScoreText: {
+    color: '#999',
+    fontSize: 12,
     fontFamily: 'RobotoMono-Regular',
-    marginBottom: 2,
+    marginLeft: 4,
   },
-  subScoreDescription: {
-    fontSize: 14,
-    color: '#BBBBBB',
-    fontFamily: 'RobotoMono-Regular',
-    marginTop: 2,
+  scoreMeterLine: {
+    height: 8,
+    width: '100%',
+    backgroundColor: '#333',
+    borderRadius: 3,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  subScoreNumber: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: 'white',
-    fontFamily: 'RobotoMono-Regular',
+  scoreMeterBackground: {
+    height: '100%',
+    width: '0%',
+    backgroundColor: '#FFF',
+    borderRadius: 3,
   },
-  // Section styles
-  section: {
-    marginHorizontal: 16,
-    marginTop: 12,
+  scoreMeterFill: {
+    position: 'absolute',
+    height: '100%',
+    width: '100%',
+    backgroundColor: '#AAAAAA',
+    borderRadius: 3,
+  },
+  // Locked Feature Card
+  lockedFeatureCard: {
+    width: '100%',
+    backgroundColor: '#1A1A1A',
     borderRadius: 16,
-    padding: 16,
-    backgroundColor: '#222222',
-    marginBottom: 4,
+    padding: 20,
+    marginBottom: 16,
   },
-  sectionHeaderContainer: {
+  lockedFeatureHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-  sectionHeaderEmoji: {
-    fontSize: 22,
-    marginRight: 8,
-  },
-  sectionHeaderText: {
+  lockedFeatureIcon: {
     fontSize: 18,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-    fontFamily: 'RobotoMono-Regular',
-    color: 'white',
-  },
-  sectionText: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontFamily: 'RobotoMono-Regular',
-    color: 'white',
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 6,
-  },
-  tagItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
     marginRight: 8,
-    marginBottom: 8,
   },
-  tagItemText: {
+  lockedFeatureTitle: {
+    color: 'white',
     fontSize: 14,
+    fontWeight: 'bold',
     fontFamily: 'RobotoMono-Regular',
   },
-  // App signature
-  appSignature: {
+  lockedFeatureContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    opacity: 0.7,
   },
-  signatureText: {
+  lockIcon: {
+    marginRight: 8,
+  },
+  lockedFeatureText: {
+    color: '#999',
     fontSize: 14,
-    color: '#777',
     fontFamily: 'RobotoMono-Regular',
-  }
+  },
+  // Bottom padding to ensure content scrolls above fixed button
+  bottomPadding: {
+    height: 100, // Adjust this value based on your button height + desired padding
+  },
+  // Fixed button container
+  fixedButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.85)', // Semi-transparent background to make button stand out
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 36, // Increased bottom padding from 24 to 36
+  },
+  // CTA Button
+  ctaButton: {
+    width: '100%',
+    backgroundColor: '#00FF77',
+    borderRadius: 100, // Increased from 40 to 100 for very circular edges
+    paddingVertical: 8, // Reduced from 18 to 8 to make it much less tall
+    alignItems: 'center',
+    shadowColor: '#00FF77',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
+    marginBottom: 12,
+  },
+  ctaContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaText: {
+    color: 'black',
+    fontSize: 20, // Increased from 18 to 20
+    fontWeight: 'bold',
+    fontFamily: 'RobotoMono-Regular',
+    marginRight: 12, // Space for the emoji
+    letterSpacing: 1, // Slightly spaced letters for emphasis
+  },
+  emojiIcon: {
+    fontSize: 48, // Doubled from 24 to 48
+    marginLeft: 8, // Slightly increased from 4 to 8
+  },
+  // Chevron animation styles
+  chevronContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chevronWrapper: {
+    marginLeft: -17, // Negative margin for overlap
+  },
+  overallHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  overallHeaderIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  overallHeaderTitle: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: 'RobotoMono-Regular',
+  },
 });
 

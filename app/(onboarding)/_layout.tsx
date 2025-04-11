@@ -32,11 +32,7 @@ export default function OnboardingLayout() {
         name="results"
         options={{
           title: 'Outfit Analysis',
-          headerShown: true,
-          headerTintColor: 'white',
-          headerStyle: {
-            backgroundColor: 'black',
-          },
+          headerShown: false,
         }}
       />
     </Stack>
