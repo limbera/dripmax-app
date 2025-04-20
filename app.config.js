@@ -80,7 +80,45 @@ module.exports = {
         [
           "expo-apple-authentication"
         ],
-        "expo-notifications"
+        "expo-notifications",
+        [
+          "@sentry/react-native/expo",
+          {
+            // For all available options, see:
+            // https://github.com/getsentry/sentry-react-native/blob/main/plugin/src/index.ts
+            
+            // Sentry project slug
+            project: "dripmax",
+            
+            // Upload source maps during build
+            sourceMaps: true,
+            
+            // Organization slug 
+            org: "your-organization-name",
+            
+            // Auth token can be provided as an environment variable
+            // If your builds are in a CI environment, best to use an environment variable
+            // authToken: process.env.SENTRY_AUTH_TOKEN,
+            
+            // Whether to upload debug symbols (iOS) and ProGuard mappings (Android)
+            // during the build process
+            uploadNativeSymbols: true,
+            
+            // Set to true to capture all logs (consider performance impact)
+            // Use selectively in your app code instead
+            autoLogConsoleError: false,
+            
+            // Set to true to register a global error handler
+            enableAutoPerformanceTracking: true,
+            
+            // Used to control source maps upload during EAS builds
+            // We'll configure based on environment
+            dist: process.env.EAS_BUILD_ID || "1.0",
+            
+            // Use environment from .env file
+            environment: process.env.EXPO_PUBLIC_ENVIRONMENT || "development"
+          }
+        ]
       ],
       
       // Experiments
@@ -101,9 +139,27 @@ module.exports = {
         authRedirectUrl: process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL,
         revenuecatAppleApiKey: process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY,
         revenuecatGoogleApiKey: process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY,
-        oneSignalAppId: process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID
+        oneSignalAppId: process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID,
+        sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+        environment: process.env.EXPO_PUBLIC_ENVIRONMENT
       },
       
-      owner: "limbera"
+      owner: "limbera",
+      
+      // Hooks for build process
+      hooks: {
+        postPublish: [
+          {
+            file: "@sentry/react-native/scripts/expo-hooks.js",
+            config: {
+              organization: "your-organization-name",
+              project: "dripmax",
+              authToken: process.env.SENTRY_AUTH_TOKEN,
+              setCommits: true,
+              deployEnv: process.env.EXPO_PUBLIC_ENVIRONMENT || "development"
+            }
+          }
+        ]
+      }
     }
   };

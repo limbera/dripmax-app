@@ -6,6 +6,7 @@ import * as Linking from 'expo-linking';
 import { supabaseLogger } from '../utils/logger';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as base64 from 'base64-js';
+import { captureException, startTransaction, SeverityLevel, addBreadcrumb } from '../services/sentry';
 
 // Get environment variables
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
@@ -19,6 +20,7 @@ const ExpoSecureStoreAdapter = {
       return await SecureStore.getItemAsync(key);
     } catch (error) {
       supabaseLogger.error(`Error getting item from secure store: ${key}`, { error });
+      captureException(error as Error, { context: 'SecureStore', key });
       return null;
     }
   },
@@ -27,6 +29,7 @@ const ExpoSecureStoreAdapter = {
       await SecureStore.setItemAsync(key, value);
     } catch (error) {
       supabaseLogger.error(`Error setting item in secure store: ${key}`, { error });
+      captureException(error as Error, { context: 'SecureStore', key });
     }
   },
   removeItem: async (key: string): Promise<void> => {
@@ -34,6 +37,7 @@ const ExpoSecureStoreAdapter = {
       await SecureStore.deleteItemAsync(key);
     } catch (error) {
       supabaseLogger.error(`Error removing item from secure store: ${key}`, { error });
+      captureException(error as Error, { context: 'SecureStore', key });
     }
   }
 };
@@ -67,6 +71,7 @@ Linking.addEventListener('url', async ({ url }) => {
     const { data, error } = await supabase.auth.getSession();
     if (error) {
       supabaseLogger.error('Error getting session after URL event', { error: error.message });
+      captureException(error, { url });
     }
   }
 });
@@ -86,6 +91,14 @@ export const setupAuthStateListener = (callback: (session: any) => void) => {
           provider: session.user.app_metadata?.provider
         } : null
       });
+      
+      // Add auth state change as a breadcrumb
+      addBreadcrumb(
+        'auth',
+        `Auth state changed: ${event}`,
+        event === 'SIGNED_OUT' ? SeverityLevel.Warning : SeverityLevel.Info,
+        { hasSession: !!session }
+      );
       
       // Call the callback with the new session
       callback(session);
@@ -186,7 +199,12 @@ export interface Garment {
  * @returns Array of garments and any error
  */
 export const fetchGarments = async () => {
+  // Start a transaction for performance tracking
+  const transaction = startTransaction('fetchGarments', 'db.query');
+  
   try {
+    addBreadcrumb('database', 'Fetching all garments', SeverityLevel.Info);
+    
     const { data: garments, error } = await supabase
       .from('garments')
       .select('*')
@@ -196,9 +214,12 @@ export const fetchGarments = async () => {
       throw error;
     }
     
+    transaction.finish();
     return { garments, error: null };
   } catch (error: any) {
     supabaseLogger.error('Error fetching garments', { error: error.message });
+    captureException(error, { operation: 'fetchGarments' });
+    transaction.finish();
     return { garments: null, error };
   }
 };
@@ -209,6 +230,7 @@ export const fetchGarments = async () => {
  * @returns The created garment and any error
  */
 export const createGarment = async (imageUri: string) => {
+  const transaction = startTransaction('createGarment', 'db.operation');
   supabaseLogger.info('Starting garment creation', { imageUriLength: imageUri?.length });
   
   try {
@@ -243,6 +265,10 @@ export const createGarment = async (imageUri: string) => {
       supabaseLogger.error('Failed to compress image', { 
         error: compressionError.message, 
         stack: compressionError.stack
+      });
+      captureException(compressionError, { 
+        stage: 'image_compression',
+        imageUriLength: imageUri?.length
       });
       throw compressionError;
     }
@@ -331,6 +357,11 @@ export const createGarment = async (imageUri: string) => {
       name: error.name,
       code: error?.code
     });
+    captureException(error, { 
+      operation: 'createGarment',
+      imageUriProvided: !!imageUri
+    });
+    transaction.finish();
     return { garment: null, error };
   }
 };

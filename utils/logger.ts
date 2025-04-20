@@ -5,6 +5,8 @@
  * organize and filter logs based on importance and context.
  */
 
+import { captureException, captureMessage, addBreadcrumb, SeverityLevel } from '../services/sentry';
+
 // Log levels in order of severity
 export enum LogLevel {
   ERROR = 'ERROR',
@@ -12,6 +14,14 @@ export enum LogLevel {
   INFO = 'INFO',
   DEBUG = 'DEBUG',
 }
+
+// Map LogLevel to Sentry SeverityLevel
+const logLevelToSentryLevel = {
+  [LogLevel.ERROR]: SeverityLevel.Error,
+  [LogLevel.WARN]: SeverityLevel.Warning,
+  [LogLevel.INFO]: SeverityLevel.Info,
+  [LogLevel.DEBUG]: SeverityLevel.Debug,
+};
 
 // Log categories to organize logs by feature area
 export enum LogCategory {
@@ -33,6 +43,10 @@ interface LoggerConfig {
   enabled: boolean;
   // Categories to enable (if empty, all categories are enabled)
   enabledCategories: LogCategory[];
+  // Whether to send logs to Sentry
+  sendToSentry: boolean;
+  // The minimum level to send to Sentry
+  minSentryLevel: LogLevel;
 }
 
 // Default configuration
@@ -41,6 +55,8 @@ const defaultConfig: LoggerConfig = {
   includeTimestamp: true,
   enabled: true,
   enabledCategories: [], // Empty means all categories are enabled
+  sendToSentry: true,
+  minSentryLevel: LogLevel.WARN, // Only send WARN and above to Sentry
 };
 
 // Current configuration (can be updated at runtime)
@@ -86,6 +102,30 @@ function logInternal(
   console.log(`${prefix} ${message}`);
   if (data !== undefined) {
     console.log(JSON.stringify(data, null, 2));
+  }
+
+  // Send to Sentry if enabled and level is high enough
+  if (config.sendToSentry && levels.indexOf(level) <= levels.indexOf(config.minSentryLevel)) {
+    const sentryLevel = logLevelToSentryLevel[level];
+    
+    // Add as breadcrumb for all logged events
+    addBreadcrumb(
+      category,
+      message,
+      sentryLevel,
+      data
+    );
+    
+    // For errors and warnings, also capture as events
+    if (level === LogLevel.ERROR) {
+      if (data instanceof Error) {
+        captureException(data, { message, category });
+      } else {
+        captureMessage(message, sentryLevel, { ...data, category });
+      }
+    } else if (level === LogLevel.WARN) {
+      captureMessage(message, sentryLevel, { ...data, category });
+    }
   }
 }
 

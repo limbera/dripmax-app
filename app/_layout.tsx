@@ -13,13 +13,18 @@ import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { navigationLogger } from '../utils/logger';
 import { notificationService } from '../services/notifications';
 import AuthTransitionManager from '../components/AuthTransitionManager';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { initSentry, setUserContext, clearUserContext } from '../services/sentry';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+// Initialize Sentry as early as possible
+initSentry();
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const { initialize, setupAuthListener, initialized: authInitialized } = useAuthStore();
+  const { initialize, setupAuthListener, initialized: authInitialized, user } = useAuthStore();
   const { 
     initialize: initializeSubscription, 
     isInitialized: subscriptionInitialized,
@@ -73,6 +78,19 @@ export default function RootLayout() {
       unsubscribe();
     };
   }, [initialize, setupAuthListener, initializeSubscription]);
+
+  // Update Sentry user context when auth state changes
+  useEffect(() => {
+    if (user) {
+      // Set user context in Sentry when a user is logged in
+      setUserContext(user.id, user.email);
+      navigationLogger.debug('Set Sentry user context', { userId: user.id });
+    } else {
+      // Clear user context when logged out
+      clearUserContext();
+      navigationLogger.debug('Cleared Sentry user context');
+    }
+  }, [user]);
 
   // Ensure subscription status is checked early during initialization
   useEffect(() => {
@@ -155,12 +173,14 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      {/* Use Slot for the initial render to prevent navigation errors */}
-      <Slot />
-      {/* Add the new transition manager to handle navigation transitions */}
-      {useNewAuthTransition && <AuthTransitionManager />}
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        {/* Use Slot for the initial render to prevent navigation errors */}
+        <Slot />
+        {/* Add the new transition manager to handle navigation transitions */}
+        {useNewAuthTransition && <AuthTransitionManager />}
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
