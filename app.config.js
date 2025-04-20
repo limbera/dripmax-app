@@ -90,19 +90,21 @@ module.exports = {
             // Sentry project slug
             project: "dripmax",
             
-            // Upload source maps during build
+            // Enable source maps upload during build
             sourceMaps: true,
             
             // Organization slug 
-            org: "your-organization-name",
+            org: "drip-max-inc",
             
             // Auth token can be provided as an environment variable
             // If your builds are in a CI environment, best to use an environment variable
-            // authToken: process.env.SENTRY_AUTH_TOKEN,
+            authToken: process.env.SENTRY_AUTH_TOKEN,
             
-            // Whether to upload debug symbols (iOS) and ProGuard mappings (Android)
-            // during the build process
+            // Enable native symbol upload
             uploadNativeSymbols: true,
+            
+            // Allow failures so builds won't be blocked if upload fails
+            allowSentryFailure: true,
             
             // Set to true to capture all logs (consider performance impact)
             // Use selectively in your app code instead
@@ -152,7 +154,7 @@ module.exports = {
           {
             file: "@sentry/react-native/scripts/expo-hooks.js",
             config: {
-              organization: "your-organization-name",
+              organization: "drip-max-inc",
               project: "dripmax",
               authToken: process.env.SENTRY_AUTH_TOKEN,
               setCommits: true,
