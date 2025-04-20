@@ -92,9 +92,7 @@ export default function GarmentCameraScreen() {
       // Launch image picker without forcing an aspect ratio
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        // No aspect ratio constraint to allow natural photos
-        quality: 0.8,
+        quality: 1,
       });
       
       if (!result.canceled && result.assets && result.assets.length > 0) {

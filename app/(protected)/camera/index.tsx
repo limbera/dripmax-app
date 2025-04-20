@@ -336,7 +336,7 @@ export default function CameraScreen() {
       // Compress the image before uploading to reduce size
       const compressedImage = await ImageManipulator.manipulateAsync(
         uri,
-        [{ resize: { width: 1200 } }], // Resize to max width of 1200px
+        [{ resize: { width: 1200 } }], // Resize to max width of 1200px while maintaining aspect ratio
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // 70% quality JPEG
       );
       
@@ -595,17 +595,17 @@ export default function CameraScreen() {
         return;
       }
       
-      // Launch image picker
+      // Launch image picker with simple configuration that worked in onboarding/capture
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [3, 4],
-        quality: 0.8,
+        quality: 1,
       });
       
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        cameraLogger.info('Image selected from gallery', { 
-          uri: result.assets[0].uri.substring(0, 20) + '...' 
+        cameraLogger.info('Image selected from gallery', {
+          uri: result.assets[0].uri.substring(0, 20) + '...',
+          width: result.assets[0].width,
+          height: result.assets[0].height,
         });
         
         // Set the captured image state with the picked image

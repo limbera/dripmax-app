@@ -136,6 +136,8 @@ SCORING METHOD:
 
 3. Provide explicit justification for your final score
 
+4. VERY IMPORTANT: when making suggestsion in "item_suggestions" propose ideas for the user to change/swap from the current photo, and only propose headware, tops, bottoms, outerwear, and footwear. Which means do not include accessories or other items.
+
 Return your response in valid JSON with the following structure:
 {
   "overall_feedback": "Two sentences describing the overall impression",

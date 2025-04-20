@@ -20,10 +20,15 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { initialize, setupAuthListener, initialized: authInitialized } = useAuthStore();
-  const { initialize: initializeSubscription, isInitialized: subscriptionInitialized } = useSubscriptionStore();
+  const { 
+    initialize: initializeSubscription, 
+    isInitialized: subscriptionInitialized,
+    ensureSubscriptionStatusChecked 
+  } = useSubscriptionStore();
   const isMounted = useRef(false);
   const [isReady, setIsReady] = useState(false);
   const [notificationsInitialized, setNotificationsInitialized] = useState(false);
+  const [subscriptionChecked, setSubscriptionChecked] = useState(false);
   const [useNewAuthTransition, setUseNewAuthTransition] = useState(true); // Enable the new transition manager
   
   // Load fonts
@@ -69,6 +74,27 @@ export default function RootLayout() {
     };
   }, [initialize, setupAuthListener, initializeSubscription]);
 
+  // Ensure subscription status is checked early during initialization
+  useEffect(() => {
+    if (subscriptionInitialized && authInitialized) {
+      navigationLogger.info('Checking subscription status during app initialization');
+      
+      const checkSubscription = async () => {
+        try {
+          await ensureSubscriptionStatusChecked();
+          setSubscriptionChecked(true);
+          navigationLogger.info('Initial subscription status check complete');
+        } catch (error) {
+          navigationLogger.error('Error during initial subscription check:', error);
+          // Mark as checked anyway to not block app initialization
+          setSubscriptionChecked(true);
+        }
+      };
+      
+      checkSubscription();
+    }
+  }, [subscriptionInitialized, authInitialized, ensureSubscriptionStatusChecked]);
+
   // Initialize OneSignal for push notifications
   useEffect(() => {
     if (!isMounted.current) return;
@@ -99,7 +125,8 @@ export default function RootLayout() {
 
   // Only hide the splash screen when ALL initialization is complete
   useEffect(() => {
-    const appFullyInitialized = fontsLoaded && authInitialized && subscriptionInitialized && notificationsInitialized;
+    const appFullyInitialized = fontsLoaded && authInitialized && subscriptionInitialized && 
+                               notificationsInitialized && subscriptionChecked;
     
     if (appFullyInitialized) {
       navigationLogger.info('App fully initialized, hiding splash screen');
@@ -117,10 +144,11 @@ export default function RootLayout() {
         fontsLoaded,
         authInitialized,
         subscriptionInitialized,
-        notificationsInitialized
+        notificationsInitialized,
+        subscriptionChecked
       });
     }
-  }, [fontsLoaded, authInitialized, subscriptionInitialized, notificationsInitialized]);
+  }, [fontsLoaded, authInitialized, subscriptionInitialized, notificationsInitialized, subscriptionChecked]);
 
   if (!fontsLoaded) {
     return null;

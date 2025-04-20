@@ -13,7 +13,11 @@ import { usePendingImageStore } from '../stores/pendingImageStore';
  */
 export default function AuthTransitionManager() {
   const { isAuthenticated, isLoading: authLoading, initialized: authInitialized } = useAuth();
-  const { hasActiveSubscription, isLoading: subscriptionLoading } = useSubscription();
+  const { 
+    hasActiveSubscription, 
+    isLoading: subscriptionLoading, 
+    ensureSubscriptionStatusChecked 
+  } = useSubscription();
   const [isTransitioning, setIsTransitioning] = useState(true);
   const [lastAuthState, setLastAuthState] = useState<boolean | null>(null);
   const [lastSubscriptionState, setLastSubscriptionState] = useState<boolean | null>(null);
@@ -181,6 +185,41 @@ export default function AuthTransitionManager() {
       segments.length > 1 && 
       segments[1] === 'paywall';
     
+    // Enhanced paywall navigation check
+    if (isPaywallNavigation || isResultsToPaywallNavigation) {
+      console.log('[AuthTransition] Detected paywall navigation, checking subscription status');
+      
+      // Check subscription status before allowing paywall navigation
+      const checkBeforePaywall = async () => {
+        try {
+          // Use the new method to ensure subscription status is checked
+          const hasSubscription = await ensureSubscriptionStatusChecked();
+          
+          console.log('[AuthTransition] Paywall navigation check complete', { hasSubscription });
+          
+          if (hasSubscription) {
+            // If the user has a subscription, redirect to protected area
+            console.log('[AuthTransition] User has active subscription, redirecting away from paywall');
+            router.replace('/(protected)');
+          } else {
+            // If no subscription, allow paywall navigation
+            setIsTransitioning(false);
+          }
+        } catch (error) {
+          console.error('[AuthTransition] Error checking subscription before paywall:', error);
+          // On error, default to allow paywall navigation
+          setIsTransitioning(false);
+        }
+      };
+      
+      // Run the check
+      checkBeforePaywall();
+      
+      // Use temporary transition state while checking
+      setIsTransitioning(true);
+      return;
+    }
+    
     // Log for debugging
     console.log('[AuthTransition] Auth state changed', {
       isAuthenticated,
@@ -262,7 +301,7 @@ export default function AuthTransitionManager() {
         clearTimeout(transitionTimeoutId);
       }
     };
-  }, [isAuthenticated, hasActiveSubscription, authLoading, subscriptionLoading, authInitialized, segments]);
+  }, [isAuthenticated, hasActiveSubscription, authLoading, subscriptionLoading, authInitialized, segments, ensureSubscriptionStatusChecked]);
 
   // If in transition state, show the loading screen
   if (isTransitioning) {

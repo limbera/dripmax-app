@@ -35,6 +35,8 @@ interface SubscriptionState {
   checkEntitlementStatus: () => Promise<boolean>;
   hasEntitlementAccess: (entitlementId: string) => boolean;
   resetUser: () => Promise<void>;
+  // New method for ensuring subscription status is checked during initialization
+  ensureSubscriptionStatusChecked: () => Promise<boolean>;
 }
 
 const REVENUECAT_API_KEYS = {
@@ -415,6 +417,47 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             state.error = `Error resetting subscription user: ${error.message}`;
           });
         }
+      }
+    },
+
+    // Add a new method that ensures subscription status is checked during app initialization
+    ensureSubscriptionStatusChecked: async () => {
+      try {
+        subscriptionLogger.info('Ensuring subscription status is checked during initialization');
+        
+        // If not initialized yet, wait for it
+        if (!get().isInitialized) {
+          subscriptionLogger.debug('Waiting for subscription initialization before checking status');
+          // Wait for initialization to complete, with a timeout
+          let attempts = 0;
+          const maxAttempts = 10; // Maximum attempts to check initialization
+          
+          while (!get().isInitialized && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between checks
+            attempts++;
+          }
+          
+          if (!get().isInitialized) {
+            subscriptionLogger.error('Timed out waiting for subscription initialization');
+            return false;
+          }
+        }
+        
+        // Check if we already have the status
+        if (get().customerInfo) {
+          const hasActiveSubscription = get().hasActiveSubscription;
+          subscriptionLogger.debug('Already have subscription status', { hasActiveSubscription });
+          return hasActiveSubscription;
+        }
+        
+        // Otherwise, do a fresh check
+        return await get().checkEntitlementStatus();
+      } catch (error: any) {
+        subscriptionLogger.error('Error ensuring subscription status check', { 
+          error: error.message, 
+          stack: error.stack 
+        });
+        return false;
       }
     },
   }))

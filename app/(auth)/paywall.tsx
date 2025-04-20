@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet, SafeAreaView } from 'react-native';
-import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useAuth } from '../../hooks/useAuth';
 import { usePendingImageStore } from '../../stores/pendingImageStore';
+import PaywallGuard from '../../components/PaywallGuard';
 
 export default function PaywallScreen() {
   const router = useRouter();
@@ -23,30 +24,6 @@ export default function PaywallScreen() {
       hasPendingImage: !!pendingImageUri
     });
   }, [hasActiveSubscription, isLoading, redirect, user, pendingImageUri]);
-
-  // Check if user already has a subscription when the screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      if (hasActiveSubscription) {
-        console.log('[Paywall] User has active subscription, redirecting to protected area');
-        router.replace('/(protected)');
-      }
-    }, [hasActiveSubscription, router])
-  );
-
-  // Handle paywall dismiss (either by close button or successful purchase)
-  const handlePaywallDismiss = () => {
-    console.log('[Paywall] Paywall dismissed, checking subscription status');
-    
-    // If user has subscription after dismiss, go to protected area
-    // Otherwise, go back to login (user pressed close)
-    if (hasActiveSubscription) {
-      router.replace('/(protected)');
-    } else {
-      // Usually we'd go back, but in our flow we want to keep them here until they subscribe
-      // So we don't navigate away
-    }
-  };
 
   // Handle successful purchase
   const handlePurchaseCompleted = useCallback(async () => {
@@ -92,70 +69,48 @@ export default function PaywallScreen() {
     }
   }, [hasActiveSubscription, router]);
 
-  // Check subscription status when component mounts
-  useEffect(() => {
+  // Handle paywall dismiss (either by close button or successful purchase)
+  const handlePaywallDismiss = () => {
+    console.log('[Paywall] Paywall dismissed, checking subscription status');
+    
+    // If user has subscription after dismiss, go to protected area
+    // Otherwise, go back to login (user pressed close)
     if (hasActiveSubscription) {
-      console.log('[Paywall] User already has active subscription, redirecting to protected area');
       router.replace('/(protected)');
-    }
-  }, [hasActiveSubscription, router]);
-
-  // Alternative approach using presentPaywall (can be used instead of the component)
-  const presentPaywall = async () => {
-    try {
-      // Only pass the offering if it's not null, otherwise pass an empty object
-      const options = currentOffering ? { offering: currentOffering } : {};
-      const paywallResult = await RevenueCatUI.presentPaywall(options);
-      
-      console.log('[Paywall] Paywall result:', paywallResult);
-
-      switch (paywallResult) {
-        case PAYWALL_RESULT.PURCHASED:
-        case PAYWALL_RESULT.RESTORED:
-          // Always redirect to the protected area after successful purchase
-          router.replace('/(protected)');
-          return true;
-        case PAYWALL_RESULT.NOT_PRESENTED:
-        case PAYWALL_RESULT.ERROR:
-        case PAYWALL_RESULT.CANCELLED:
-        default:
-          return false;
-      }
-    } catch (error) {
-      console.error('[Paywall] Error presenting paywall:', error);
-      return false;
+    } else {
+      // Usually we'd go back, but in our flow we want to keep them here until they subscribe
+      // So we don't navigate away
     }
   };
 
-  // Present the paywall when component mounts if using the presentPaywall approach
-  // Uncomment this if you prefer using presentPaywall instead of the component
-  /*
-  useEffect(() => {
-    if (!isLoading && !hasActiveSubscription && currentOffering) {
-      presentPaywall();
+  // Render function that will only run if PaywallGuard allows it
+  const renderPaywall = () => {
+    if (isLoading) {
+      return (
+        <SafeAreaView style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00FF77" />
+          <Text style={styles.loadingText}>Loading subscription options...</Text>
+        </SafeAreaView>
+      );
     }
-  }, [isLoading, hasActiveSubscription, currentOffering]);
-  */
 
-  if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#00FF77" />
-        <Text style={styles.loadingText}>Loading subscription options...</Text>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <RevenueCatUI.Paywall
+          options={currentOffering ? { offering: currentOffering } : undefined}
+          onPurchaseCompleted={handlePurchaseCompleted}
+          onRestoreCompleted={handleRestoreCompleted}
+          onDismiss={handlePaywallDismiss}
+        />
+      </View>
     );
-  }
+  };
 
-  // Using the RevenueCatUI.Paywall component approach (preferred)
+  // Wrap the entire paywall in our guard component
   return (
-    <View style={styles.container}>
-      <RevenueCatUI.Paywall
-        options={currentOffering ? { offering: currentOffering } : undefined}
-        onPurchaseCompleted={handlePurchaseCompleted}
-        onRestoreCompleted={handleRestoreCompleted}
-        onDismiss={handlePaywallDismiss}
-      />
-    </View>
+    <PaywallGuard>
+      {renderPaywall()}
+    </PaywallGuard>
   );
 }
 

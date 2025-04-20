@@ -16,7 +16,8 @@ export const useSubscription = () => {
     purchasePackage,
     restorePurchases,
     checkEntitlementStatus,
-    resetUser
+    resetUser,
+    ensureSubscriptionStatusChecked
   } = useSubscriptionStore();
   
   const { user, isAuthenticated } = useAuth();
@@ -77,6 +78,7 @@ export const useSubscription = () => {
     refreshOfferings,
     purchasePackage,
     restorePurchases,
-    checkEntitlementStatus
+    checkEntitlementStatus,
+    ensureSubscriptionStatusChecked
   };
 }; 
