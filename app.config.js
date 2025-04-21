@@ -87,14 +87,14 @@ module.exports = {
             // For all available options, see:
             // https://github.com/getsentry/sentry-react-native/blob/main/plugin/src/index.ts
             
-            // Sentry project slug
-            project: "dripmax",
+            // Use the project ID from DSN
+            project: "4508802873688064",
             
-            // Enable source maps upload during build
+            // Enable source maps upload during build now that we have correct IDs
             sourceMaps: true,
             
-            // Organization slug 
-            org: "drip-max-inc",
+            // Use the organization ID from DSN 
+            org: "o4508802869297152",
             
             // Auth token can be provided as an environment variable
             // If your builds are in a CI environment, best to use an environment variable
@@ -148,14 +148,14 @@ module.exports = {
       
       owner: "limbera",
       
-      // Hooks for build process
+      // Re-enabling hooks with the proper IDs
       hooks: {
         postPublish: [
           {
             file: "@sentry/react-native/scripts/expo-hooks.js",
             config: {
-              organization: "drip-max-inc",
-              project: "dripmax",
+              organization: "o4508802869297152",
+              project: "4508802873688064",
               authToken: process.env.SENTRY_AUTH_TOKEN,
               setCommits: true,
               deployEnv: process.env.EXPO_PUBLIC_ENVIRONMENT || "development"

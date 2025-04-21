@@ -1,184 +1,115 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Slot, Stack } from 'expo-router';
+import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { View, Text } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useProtectedRoute } from '../hooks/useProtectedRoute';
-import { useAuthStore } from '../stores/authStore';
-import { useSubscriptionStore } from '../stores/subscriptionStore';
-import { navigationLogger } from '../utils/logger';
-import { notificationService } from '../services/notifications';
-import AuthTransitionManager from '../components/AuthTransitionManager';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { initSentry, setUserContext, clearUserContext } from '../services/sentry';
+import { initSentry } from '../services/sentry';
+import AppNavigator from '../components/AppNavigator';
+import { useAppInitialization } from '../hooks/useAppInitialization';
+import { authLogger } from '../utils/logger';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+// Prevent the splash screen from auto-hiding before our app state management takes over
+try {
+  SplashScreen.preventAutoHideAsync().catch(error => {
+    authLogger.warn('Error preventing splash screen auto-hide', error);
+  });
+} catch (error) {
+  authLogger.warn('Error in SplashScreen.preventAutoHideAsync()', error);
+}
 
 // Initialize Sentry as early as possible
 initSentry();
 
+/**
+ * Fallback screen in case of critical errors
+ */
+function FallbackErrorScreen() {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'black' }}>
+      <Text style={{ color: 'white', fontSize: 18, marginBottom: 20 }}>Something went wrong</Text>
+      <Text style={{ color: 'gray', fontSize: 14, textAlign: 'center', paddingHorizontal: 40 }}>
+        The app encountered an unexpected error. Please restart the app.
+      </Text>
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const { initialize, setupAuthListener, initialized: authInitialized, user } = useAuthStore();
-  const { 
-    initialize: initializeSubscription, 
-    isInitialized: subscriptionInitialized,
-    ensureSubscriptionStatusChecked 
-  } = useSubscriptionStore();
-  const isMounted = useRef(false);
-  const [isReady, setIsReady] = useState(false);
-  const [notificationsInitialized, setNotificationsInitialized] = useState(false);
-  const [subscriptionChecked, setSubscriptionChecked] = useState(false);
-  const [useNewAuthTransition, setUseNewAuthTransition] = useState(true); // Enable the new transition manager
+  const [hasError, setHasError] = useState(false);
   
-  // Load fonts
-  const [fontsLoaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  // Only use the protected route hook if we're not using the new transition manager
-  if (!useNewAuthTransition) {
-    useProtectedRoute();
-  }
-
-  // Set mounted status after first render
-  useEffect(() => {
-    isMounted.current = true;
-    navigationLogger.info('Root layout mounted');
-    return () => {
-      isMounted.current = false;
-      navigationLogger.info('Root layout unmounted');
-    };
-  }, []);
+  // Use the new app initialization hook to manage the startup sequence
+  const { isInitialized } = useAppInitialization();
   
-  // Initialize auth state listener and subscription
+  // Log component lifecycle for debugging
   useEffect(() => {
-    if (!isMounted.current) return;
+    authLogger.debug('Root layout mounted', { colorScheme, isInitialized });
     
-    navigationLogger.info('Root layout initializing auth and subscription');
-    
-    // Initialize the auth store
-    initialize();
-    
-    // Initialize RevenueCat
-    initializeSubscription();
-    
-    // Set up the auth state listener
-    navigationLogger.info('Setting up auth listener');
-    const unsubscribe = setupAuthListener();
-    
-    // Clean up the listener when the component unmounts
-    return () => {
-      navigationLogger.debug('Cleaning up auth listener');
-      unsubscribe();
-    };
-  }, [initialize, setupAuthListener, initializeSubscription]);
-
-  // Update Sentry user context when auth state changes
-  useEffect(() => {
-    if (user) {
-      // Set user context in Sentry when a user is logged in
-      setUserContext(user.id, user.email);
-      navigationLogger.debug('Set Sentry user context', { userId: user.id });
-    } else {
-      // Clear user context when logged out
-      clearUserContext();
-      navigationLogger.debug('Cleared Sentry user context');
-    }
-  }, [user]);
-
-  // Ensure subscription status is checked early during initialization
-  useEffect(() => {
-    if (subscriptionInitialized && authInitialized) {
-      navigationLogger.info('Checking subscription status during app initialization');
-      
-      const checkSubscription = async () => {
-        try {
-          await ensureSubscriptionStatusChecked();
-          setSubscriptionChecked(true);
-          navigationLogger.info('Initial subscription status check complete');
-        } catch (error) {
-          navigationLogger.error('Error during initial subscription check:', error);
-          // Mark as checked anyway to not block app initialization
-          setSubscriptionChecked(true);
-        }
-      };
-      
-      checkSubscription();
-    }
-  }, [subscriptionInitialized, authInitialized, ensureSubscriptionStatusChecked]);
-
-  // Initialize OneSignal for push notifications
-  useEffect(() => {
-    if (!isMounted.current) return;
-    
-    const initializeNotifications = async () => {
+    // Emergency timeout to hide splash screen if something goes wrong
+    const timeoutId = setTimeout(() => {
       try {
-        navigationLogger.info('Initializing push notifications');
-        await notificationService.initialize();
-        setNotificationsInitialized(true);
-        navigationLogger.info('Push notifications initialized successfully');
+        SplashScreen.hideAsync().catch(err => {
+          authLogger.error('Emergency splash screen hide error', err);
+        });
       } catch (error) {
-        navigationLogger.error('Error initializing push notifications', error);
-        // Still mark as initialized to not block app startup
-        setNotificationsInitialized(true);
+        authLogger.error('Emergency timeout error', error);
+      }
+    }, 15000); // 15 seconds
+    
+    return () => {
+      clearTimeout(timeoutId);
+      authLogger.debug('Root layout unmounted');
+    };
+  }, [colorScheme, isInitialized]);
+
+  // Handle uncaught errors
+  useEffect(() => {
+    const errorHandler = (error: any) => {
+      authLogger.error('Uncaught error in root layout', error);
+      setHasError(true);
+      
+      // Emergency hide of splash screen
+      try {
+        SplashScreen.hideAsync().catch(() => {});
+      } catch (e) {
+        // Ignore errors here
       }
     };
     
-    initializeNotifications();
+    // Add global error handler
+    try {
+      // Type assertion for React Native's ErrorUtils
+      const ErrorUtils = (global as any).ErrorUtils;
+      if (ErrorUtils && typeof ErrorUtils.setGlobalHandler === 'function') {
+        const originalHandler = ErrorUtils.getGlobalHandler();
+        ErrorUtils.setGlobalHandler(errorHandler);
+        
+        return () => {
+          // Restore original handler on cleanup
+          ErrorUtils.setGlobalHandler(originalHandler);
+        };
+      }
+    } catch (e) {
+      authLogger.warn('Could not set global error handler', e);
+    }
   }, []);
 
-  // Mark the layout as ready after initialization and fonts are loaded
-  useEffect(() => {
-    if (isMounted.current && fontsLoaded) {
-      navigationLogger.info('Root layout ready for protected route navigation');
-      setIsReady(true);
-    }
-  }, [fontsLoaded]);
-
-  // Only hide the splash screen when ALL initialization is complete
-  useEffect(() => {
-    const appFullyInitialized = fontsLoaded && authInitialized && subscriptionInitialized && 
-                               notificationsInitialized && subscriptionChecked;
-    
-    if (appFullyInitialized) {
-      navigationLogger.info('App fully initialized, hiding splash screen');
-      // Small delay to ensure all state updates are processed
-      setTimeout(async () => {
-        try {
-          await SplashScreen.hideAsync();
-          navigationLogger.info('Splash screen hidden successfully');
-        } catch (e) {
-          navigationLogger.error('Error hiding splash screen', e);
-        }
-      }, 100); // Brief delay
-    } else {
-      navigationLogger.debug('Waiting for full initialization before hiding splash screen', {
-        fontsLoaded,
-        authInitialized,
-        subscriptionInitialized,
-        notificationsInitialized,
-        subscriptionChecked
-      });
-    }
-  }, [fontsLoaded, authInitialized, subscriptionInitialized, notificationsInitialized, subscriptionChecked]);
-
-  if (!fontsLoaded) {
-    return null;
+  // If we have a critical error, show fallback screen
+  if (hasError) {
+    return <FallbackErrorScreen />;
   }
 
   return (
     <ErrorBoundary>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        {/* Use Slot for the initial render to prevent navigation errors */}
+        {/* Use Slot for page rendering and AppNavigator for initialization and navigation */}
         <Slot />
-        {/* Add the new transition manager to handle navigation transitions */}
-        {useNewAuthTransition && <AuthTransitionManager />}
+        <AppNavigator />
         <StatusBar style="auto" />
       </ThemeProvider>
     </ErrorBoundary>

@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSubscription } from '../hooks/useSubscription';
+import { authLogger } from '../utils/logger';
 
 interface PaywallGuardProps {
   children: React.ReactNode;
@@ -16,20 +17,31 @@ export default function PaywallGuard({ children }: PaywallGuardProps) {
   const router = useRouter();
   const { hasActiveSubscription, isLoading, ensureSubscriptionStatusChecked } = useSubscription();
   const [isChecking, setIsChecking] = useState(true);
+  const hasChecked = useRef(false);
 
-  // Run an immediate subscription check when this component mounts
+  // Run subscription check only once when component mounts
   useEffect(() => {
+    // Skip if we've already checked
+    if (hasChecked.current) return;
+    
     const checkSubscription = async () => {
+      // Set checking flag to prevent multiple parallel checks
+      if (!isChecking) return;
+      
       try {
-        console.log('[PaywallGuard] Checking subscription status before showing paywall');
-        // Use the new method that ensures subscription status is checked
+        authLogger.info('[PaywallGuard] Checking subscription status before showing paywall');
+        
+        // Mark as checked immediately to prevent multiple runs
+        hasChecked.current = true;
+        
+        // Use the ensureSubscriptionStatusChecked method
         const hasSubscription = await ensureSubscriptionStatusChecked();
         
-        console.log('[PaywallGuard] Subscription check complete', { hasSubscription });
+        authLogger.info('[PaywallGuard] Subscription check complete', { hasSubscription });
         
         // If the user has a subscription, redirect to protected area
         if (hasSubscription) {
-          console.log('[PaywallGuard] User has active subscription, redirecting to protected area');
+          authLogger.info('[PaywallGuard] User has active subscription, redirecting to protected area');
           router.replace('/(protected)');
           return;
         }
@@ -37,14 +49,14 @@ export default function PaywallGuard({ children }: PaywallGuardProps) {
         // Otherwise, allow paywall to show
         setIsChecking(false);
       } catch (error) {
-        console.error('[PaywallGuard] Error checking subscription:', error);
+        authLogger.error('[PaywallGuard] Error checking subscription:', error);
         // On error, default to showing the paywall
         setIsChecking(false);
       }
     };
     
     checkSubscription();
-  }, [router, ensureSubscriptionStatusChecked]);
+  }, [router, ensureSubscriptionStatusChecked, isChecking]);
 
   // Show loading while checking subscription status or while general subscription loading
   if (isChecking || isLoading) {
@@ -71,6 +83,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: 'white',
-    fontFamily: 'RobotoMono-Regular',
+    fontFamily: 'SpaceMono',
   },
 }); 

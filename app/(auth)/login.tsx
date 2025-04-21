@@ -1,13 +1,60 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Image, Dimensions, TouchableOpacity, Alert } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
+import { useSubscription } from '../../hooks/useSubscription';
+import { authLogger } from '../../utils/logger';
 
 export default function LoginScreen() {
-  const { signInWithGoogle, signInWithApple, isLoading, error } = useAuth();
+  const { signInWithGoogle, signInWithApple, isLoading, error, isAuthenticated, session, user } = useAuth();
+  const { 
+    hasActiveSubscription, 
+    isCheckingSubscription, 
+    ensureSubscriptionStatusChecked 
+  } = useSubscription();
+  
+  const [isNavigating, setIsNavigating] = useState(false);
+  const router = useRouter();
+  
+  // Handle redirects based on auth state
+  useEffect(() => {
+    if (isAuthenticated && !isNavigating && user) {
+      setIsNavigating(true);
+      
+      const navigateBasedOnSubscription = async () => {
+        try {
+          authLogger.info('User authenticated in login screen - checking subscription', {
+            userId: user.id
+          });
+          
+          // Check subscription status
+          const hasSubscription = await ensureSubscriptionStatusChecked();
+          
+          authLogger.info(`Login screen subscription check result: ${hasSubscription ? 'SUBSCRIBED' : 'NOT SUBSCRIBED'}`);
+          
+          // Navigate based on subscription status
+          if (hasSubscription) {
+            authLogger.info('User has active subscription - navigating to protected area');
+            router.replace('/(protected)');
+          } else {
+            authLogger.info('User has no subscription - navigating to onboarding');
+            router.replace('/(onboarding)/capture');
+          }
+        } catch (error) {
+          authLogger.error('Error during login navigation', error);
+          // Default to onboarding on error
+          router.replace('/(onboarding)/capture');
+        } finally {
+          setIsNavigating(false);
+        }
+      };
+      
+      navigateBasedOnSubscription();
+    }
+  }, [isAuthenticated, user, ensureSubscriptionStatusChecked, router, isNavigating]);
   
   const handleTerms = async () => {
     try {
@@ -23,6 +70,53 @@ export default function LoginScreen() {
     } catch (error) {
       Alert.alert('Error', 'Could not open privacy page');
     }
+  };
+  
+  // Show different status when checking
+  const renderAuthButtons = () => {
+    if (isLoading || isCheckingSubscription || isNavigating) {
+      return (
+        <View style={styles.buttonsRow}>
+          <View style={[styles.authButton, styles.loadingButton]}>
+            <ActivityIndicator color="#00FF77" />
+            <Text style={styles.loadingText}>
+              {isNavigating ? 'Checking subscription...' : 
+               isCheckingSubscription ? 'Checking subscription...' : 'Signing in...'}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.buttonsRow}>
+        <TouchableOpacity 
+          style={styles.authButton}
+          onPress={signInWithApple}
+          disabled={isLoading}
+        >
+          <View style={styles.buttonContent}>
+            <Ionicons name="logo-apple" size={24} color="white" />
+            <Text style={styles.authButtonText}>
+              Apple
+            </Text>
+          </View>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.authButton}
+          onPress={signInWithGoogle}
+          disabled={isLoading}
+        >
+          <View style={styles.buttonContent}>
+            <Ionicons name="logo-google" size={24} color="white" />
+            <Text style={styles.authButtonText}>
+              Google
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
   };
   
   return (
@@ -62,41 +156,8 @@ export default function LoginScreen() {
           <Text style={styles.continueText}>continue with</Text>
           <View style={styles.continueWithLine} />
         </View>
-        <View style={styles.buttonsRow}>
-          <TouchableOpacity 
-            style={styles.authButton}
-            onPress={signInWithApple}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <View style={styles.buttonContent}>
-                <Ionicons name="logo-apple" size={24} color="white" />
-                <Text style={styles.authButtonText}>
-                  Apple
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.authButton}
-            onPress={signInWithGoogle}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <View style={styles.buttonContent}>
-                <Ionicons name="logo-google" size={24} color="white" />
-                <Text style={styles.authButtonText}>
-                  Google
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+        
+        {renderAuthButtons()}
       </View>
       
       {error && (
@@ -201,6 +262,15 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     borderRadius: 5,
     padding: 15,
+  },
+  loadingButton: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#00FF77',
+    marginLeft: 10,
   },
   buttonContent: {
     flexDirection: 'row',

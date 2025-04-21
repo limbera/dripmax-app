@@ -1,80 +1,110 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet, SafeAreaView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useAuth } from '../../hooks/useAuth';
 import { usePendingImageStore } from '../../stores/pendingImageStore';
+import { authLogger } from '../../utils/logger';
 import PaywallGuard from '../../components/PaywallGuard';
 
 export default function PaywallScreen() {
   const router = useRouter();
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
-  const { currentOffering, isLoading, hasActiveSubscription, checkEntitlementStatus } = useSubscription();
-  const { user } = useAuth();
+  const { 
+    currentOffering, 
+    isLoading: isSubscriptionLoading, 
+    hasActiveSubscription, 
+    ensureSubscriptionStatusChecked,
+    refreshOfferings
+  } = useSubscription();
+  const { user, updateSubscriptionStatus } = useAuth();
   const { pendingImageUri } = usePendingImageStore();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const hasLoadedOfferings = useRef(false);
 
-  // Debug console logs to help track the issue
+  // Make sure offerings are loaded only once
   useEffect(() => {
-    console.log('[Paywall DEBUG] Current subscription status:', { 
+    if (hasLoadedOfferings.current) return;
+    
+    const loadOfferings = async () => {
+      try {
+        hasLoadedOfferings.current = true;
+        await refreshOfferings();
+        authLogger.info('[Paywall] Offerings refreshed');
+      } catch (error) {
+        authLogger.error('[Paywall] Error refreshing offerings', error);
+      }
+    };
+    
+    loadOfferings();
+  }, [refreshOfferings]);
+
+  // Debug console logs to help track the issue - but only log once
+  useEffect(() => {
+    authLogger.debug('[Paywall] Current subscription status:', { 
       hasActiveSubscription, 
-      isLoading,
+      isLoading: isSubscriptionLoading,
       redirect,
       userId: user?.id,
-      hasPendingImage: !!pendingImageUri
+      hasPendingImage: !!pendingImageUri,
+      hasOffering: !!currentOffering
     });
-  }, [hasActiveSubscription, isLoading, redirect, user, pendingImageUri]);
+  }, []);
 
-  // Handle successful purchase
-  const handlePurchaseCompleted = useCallback(async () => {
-    console.log('[Paywall] Purchase completed, refreshing subscription status and navigating');
+  // Navigate after successful subscription
+  const handleSubscriptionSuccess = useCallback(async () => {
+    authLogger.info('[Paywall] Subscription successful, navigating');
     
     try {
-      // Refresh subscription status
-      await checkEntitlementStatus();
-      console.log('[Paywall] Subscription status refreshed after purchase:', { 
-        hasActiveSubscription,
-        hasPendingImage: !!pendingImageUri
-      });
+      // Update subscription status
+      const hasSubscription = await ensureSubscriptionStatusChecked();
+      authLogger.info(`[Paywall] Subscription check after purchase: ${hasSubscription ? 'ACTIVE' : 'INACTIVE'}`);
       
-      // Force immediate navigation to protected area with a small delay
-      // Use replaceAll to bypass navigation protection
-      setTimeout(() => {
-        console.log('[Paywall] Forcing navigation to protected area');
-        
-        // Let the AuthTransitionManager handle routing based on pending image
-        // We'll just navigate to the root protected area
-        // @ts-ignore - replaceAll is not in the type definitions but exists in the router
-        if (router.replaceAll) {
-          // @ts-ignore
-          router.replaceAll('/(protected)');
-        } else {
-          router.replace('/(protected)');
-        }
-      }, 500);
+      // Update the auth store
+      updateSubscriptionStatus(hasSubscription);
+      
+      // Navigate to protected area
+      if (pendingImageUri) {
+        // If there's a pending image, go to camera to process it
+        authLogger.info('[Paywall] Pending image found, navigating to camera for processing', {
+          pendingImageUri: pendingImageUri.substring(0, 30) + '...'
+        });
+        router.replace('/(protected)/camera');
+      } else {
+        // Otherwise go to main protected area
+        authLogger.info('[Paywall] No pending image, navigating to main protected area');
+        router.replace('/(protected)');
+      }
     } catch (error) {
-      console.error('[Paywall] Error refreshing subscription status:', error);
-      // Navigate anyway
-      router.replace('/(protected)');
+      authLogger.error('[Paywall] Error after subscription', error);
+      // Navigate anyway - make sure we check for pending image even on error
+      if (pendingImageUri) {
+        router.replace('/(protected)/camera');
+      } else {
+        router.replace('/(protected)');
+      }
     }
-  }, [router, checkEntitlementStatus, hasActiveSubscription, pendingImageUri]);
+  }, [router, ensureSubscriptionStatusChecked, pendingImageUri, updateSubscriptionStatus]);
+
+  // Handle successful purchase
+  const handlePurchaseCompleted = useCallback((data: { customerInfo: any }) => {
+    authLogger.info('[Paywall] Purchase completed, refreshing subscription status and navigating');
+    handleSubscriptionSuccess();
+  }, [handleSubscriptionSuccess]);
 
   // Handle successful restore
-  const handleRestoreCompleted = useCallback(() => {
-    console.log('[Paywall] Restore completed, checking subscription status');
-    
-    // If user has subscription after restore, go to protected area
-    if (hasActiveSubscription) {
-      router.replace('/(protected)');
-    }
-  }, [hasActiveSubscription, router]);
+  const handleRestoreCompleted = useCallback((data: { customerInfo: any }) => {
+    authLogger.info('[Paywall] Restore completed, checking subscription status');
+    handleSubscriptionSuccess();
+  }, [handleSubscriptionSuccess]);
 
   // Handle paywall dismiss (either by close button or successful purchase)
   const handlePaywallDismiss = () => {
-    console.log('[Paywall] Paywall dismissed, checking subscription status');
+    authLogger.info('[Paywall] Paywall dismissed, checking subscription status');
     
     // If user has subscription after dismiss, go to protected area
-    // Otherwise, go back to login (user pressed close)
+    // Otherwise, go back to previous screen (user pressed close)
     if (hasActiveSubscription) {
       router.replace('/(protected)');
     } else {
@@ -83,13 +113,15 @@ export default function PaywallScreen() {
     }
   };
 
-  // Render function that will only run if PaywallGuard allows it
+  // Render the RevenueCat UI Paywall
   const renderPaywall = () => {
-    if (isLoading) {
+    if (isSubscriptionLoading || !currentOffering) {
       return (
         <SafeAreaView style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#00FF77" />
-          <Text style={styles.loadingText}>Loading subscription options...</Text>
+          <Text style={styles.loadingText}>
+            Loading subscription options...
+          </Text>
         </SafeAreaView>
       );
     }
@@ -106,7 +138,6 @@ export default function PaywallScreen() {
     );
   };
 
-  // Wrap the entire paywall in our guard component
   return (
     <PaywallGuard>
       {renderPaywall()}
@@ -128,6 +159,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: 'white',
-    fontFamily: 'RobotoMono-Regular',
+    fontFamily: 'SpaceMono',
   },
 }); 
