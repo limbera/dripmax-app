@@ -5,6 +5,7 @@ import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { notificationService } from '../services/notifications';
 import { authLogger } from '../utils/logger';
 import * as SecureStore from 'expo-secure-store';
+import { purgeAuthStorage } from '../services/supabase';
 
 /**
  * Simplified initialization hook with improved error handling and sequencing
@@ -14,7 +15,10 @@ export function useAppInitialization() {
     currentState, 
     setAppState, 
     markStateComplete, 
-    hideSplashScreen
+    hideSplashScreen,
+    setAuthServiceReady,
+    setSubscriptionServiceReady,
+    setNotificationsReady
   } = useAppStateStore();
   
   // Auth state
@@ -46,44 +50,48 @@ export function useAppInitialization() {
   const debugTimestampRef = useRef(Date.now());
   const initCompleted = useRef(false);
   
-  // Clear secure store if there are persistent errors (development only)
+  // Clear secure store if there are persistent errors (in both dev and prod)
   useEffect(() => {
-    if (__DEV__) {
-      const checkAndClearSecureStore = async () => {
-        try {
-          // Check if we can read from secure store
-          const testKey = 'test-init-key';
-          await SecureStore.setItemAsync(testKey, 'test-value');
-          const testValue = await SecureStore.getItemAsync(testKey);
+    const checkAndClearSecureStore = async () => {
+      try {
+        // Try to validate SecureStore by writing and reading a test value
+        const testKey = 'test-init-key';
+        await SecureStore.setItemAsync(testKey, 'test-value');
+        const testValue = await SecureStore.getItemAsync(testKey);
+        
+        if (testValue !== 'test-value') {
+          // If validation fails, do a complete SecureStore cleanup
+          authLogger.warn('Secure store test failed, will reset secure store');
           
-          if (testValue !== 'test-value') {
-            authLogger.warn('Secure store test failed, will reset secure store');
-            // List of keys potentially used for auth
-            const keysToCheck = [
-              'sb-iqvvgtmskgdbvvisgkxw-auth-token',
-              'EXPO_SECURE_STORE_AUTH_TOKEN',
-              'auth-session'
-            ];
-            
-            // Try to delete any problematic keys
-            for (const key of keysToCheck) {
-              try {
-                await SecureStore.deleteItemAsync(key);
-                authLogger.info(`Deleted key from secure store: ${key}`);
-              } catch (e) {
-                // Ignore errors on deletion
-              }
-            }
-          } else {
+          // Clean all auth tokens
+          await purgeAuthStorage();
+          
+          // Try to delete the test key too
+          try {
             await SecureStore.deleteItemAsync(testKey);
+          } catch (e) {
+            // Ignore this particular error
           }
-        } catch (error) {
-          authLogger.error('Secure store check failed', error);
+        } else {
+          // Clean up the test key
+          await SecureStore.deleteItemAsync(testKey);
+          
+          // Even if the validation passes, we'll try to clean up the
+          // problematic key without error logging, as a preventative measure
         }
-      };
-      
-      checkAndClearSecureStore();
-    }
+      } catch (error) {
+        authLogger.error('Secure store check failed', error);
+        
+        // If we can't even perform the check, try to clean auth storage anyway
+        try {
+          await purgeAuthStorage();
+        } catch (e) {
+          // Silent fail is acceptable here
+        }
+      }
+    };
+    
+    checkAndClearSecureStore();
   }, []);
   
   // Main initialization effect - improved sequencing
@@ -122,6 +130,7 @@ export function useAppInitialization() {
           }
           
           setInitStatus(prev => ({ ...prev, authDone: true }));
+          setAuthServiceReady(true);
         } catch (error) {
           authLogger.error('Auth initialization error', error);
           // Mark as complete even if there's an error so we can continue
@@ -146,6 +155,7 @@ export function useAppInitialization() {
           }
           
           setInitStatus(prev => ({ ...prev, subscriptionDone: true }));
+          setSubscriptionServiceReady(true);
         } catch (error) {
           authLogger.error('Subscription initialization error', error);
         }
@@ -160,17 +170,14 @@ export function useAppInitialization() {
           await notificationService.initialize();
           authLogger.info(`Notifications initialized (${Date.now() - debugTimestampRef.current}ms)`);
           setInitStatus(prev => ({ ...prev, notificationsDone: true }));
+          setNotificationsReady(true);
         } catch (error) {
           authLogger.error('Notification initialization error', error);
         }
         
         markStateComplete(AppState.INITIALIZING_NOTIFICATIONS);
         
-        // 6. Set final app state based on authenticated state
-        authLogger.info(`Setting final app state (${Date.now() - debugTimestampRef.current}ms)`);
-        setFinalAppState();
-        
-        // 7. Hide splash screen
+        // 6. Hide splash screen
         authLogger.info(`Hiding splash screen (${Date.now() - debugTimestampRef.current}ms)`);
         await hideSplashScreen();
         
@@ -186,29 +193,6 @@ export function useAppInitialization() {
     
     runInitialization();
   }, []);
-  
-  // Separate function to determine final app state
-  const setFinalAppState = () => {
-    if (!isAuthenticated) {
-      authLogger.info('User not authenticated - setting UNAUTHENTICATED state');
-      setAppState(AppState.UNAUTHENTICATED);
-    } else if (hasActiveSubscription) {
-      authLogger.info('User authenticated with subscription - setting AUTHENTICATED_WITH_SUB state');
-      setAppState(AppState.AUTHENTICATED_WITH_SUB);
-    } else {
-      authLogger.info('User authenticated without subscription - setting AUTHENTICATED_NO_SUB state');
-      setAppState(AppState.AUTHENTICATED_NO_SUB);
-    }
-  };
-  
-  // Update app state when auth/subscription changes
-  useEffect(() => {
-    // Skip during initial initialization
-    if (!initCompleted.current) return;
-    
-    // Update app state based on current auth and subscription status
-    setFinalAppState();
-  }, [isAuthenticated, hasActiveSubscription]);
   
   // Helper function to check if app is initialized
   const isInitialized = () => {

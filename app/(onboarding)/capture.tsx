@@ -289,14 +289,6 @@ export default function CaptureScreen() {
                 color="white" 
               />
             </TouchableOpacity>
-            
-            {/* Close button - Right */}
-            <TouchableOpacity
-              style={styles.controlButton}
-              onPress={() => router.back()}
-            >
-              <Ionicons name="close" size={24} color="white" />
-            </TouchableOpacity>
           </View>
           
           {/* Bottom controls row */}

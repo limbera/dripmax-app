@@ -6,7 +6,12 @@ import * as Linking from 'expo-linking';
 import { supabaseLogger } from '../utils/logger';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as base64 from 'base64-js';
+import pako from 'pako';
 import { captureException, startTransaction, SeverityLevel, addBreadcrumb } from '../services/sentry';
+
+// TextEncoder/Decoder polyfill might be needed for some environments, 
+// but React Native includes it globally.
+// If issues arise, consider: import 'text-encoding-polyfill';
 
 // Get environment variables
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
@@ -16,25 +21,85 @@ const redirectUrl = Constants.expoConfig?.extra?.authRedirectUrl;
 // Create a custom storage adapter for Supabase
 const ExpoSecureStoreAdapter = {
   getItem: async (key: string): Promise<string | null> => {
+    supabaseLogger.debug(`[SecureStoreAdapter] getItem called for key: ${key}`);
+    
     try {
-      return await SecureStore.getItemAsync(key);
+      // 1. Retrieve the Base64 encoded compressed string
+      const base64String = await SecureStore.getItemAsync(key);
+      
+      if (!base64String) {
+        supabaseLogger.debug(`[SecureStoreAdapter] No item found for key: ${key}`);
+        return null;
+      }
+      
+      supabaseLogger.debug(`[SecureStoreAdapter] Found compressed item for ${key}`, { base64Length: base64String.length });
+
+      // 2. Decode the Base64 string back to Uint8Array (compressed data)
+      const compressedData = base64.toByteArray(base64String);
+      
+      // 3. Decompress the data
+      const decompressedData = pako.inflate(compressedData);
+      
+      // 4. Convert the decompressed Uint8Array back to the original JSON string
+      const decoder = new TextDecoder();
+      const originalString = decoder.decode(decompressedData);
+      
+      supabaseLogger.debug(`[SecureStoreAdapter] Decompressed item for ${key}`, { 
+        base64Length: base64String.length,
+        originalLength: originalString.length 
+      });
+      
+      return originalString;
+      
     } catch (error) {
-      supabaseLogger.error(`Error getting item from secure store: ${key}`, { error });
-      captureException(error as Error, { context: 'SecureStore', key });
+      supabaseLogger.error(`Error getting/decompressing item from secure store: ${key}`, { error });
+      captureException(error as Error, { context: 'SecureStore', key, operation: 'getItemDecompressed' });
+      
+      // If any error occurs during retrieval/decoding/decompression, treat it as if the item doesn't exist
+      // Also attempt to remove potentially corrupted item
+      try {
+        await SecureStore.deleteItemAsync(key);
+        supabaseLogger.warn(`[SecureStoreAdapter] Removed potentially corrupted item for key: ${key}`);
+      } catch (removeError) {
+        supabaseLogger.error(`[SecureStoreAdapter] Failed to remove potentially corrupted item for key: ${key}`, { removeError });
+      }
       return null;
     }
   },
   setItem: async (key: string, value: string): Promise<void> => {
+    supabaseLogger.debug(`[SecureStoreAdapter] setItem called for key: ${key}`, { originalLength: value.length });
+    
     try {
-      await SecureStore.setItemAsync(key, value);
+      // 1. Convert string to Uint8Array
+      const encoder = new TextEncoder();
+      const data = encoder.encode(value);
+      
+      // 2. Compress the data
+      const compressedData = pako.deflate(data);
+      
+      // 3. Encode compressed data to Base64 string
+      const base64String = base64.fromByteArray(compressedData);
+      
+      supabaseLogger.debug(`[SecureStoreAdapter] Storing compressed item for ${key}`, {
+        originalLength: value.length,
+        compressedLength: compressedData.length, // Actual compressed bytes
+        base64Length: base64String.length // Length of string being stored
+      });
+
+      // Store the Base64 encoded compressed string
+      await SecureStore.setItemAsync(key, base64String);
+      
+      supabaseLogger.debug(`[SecureStoreAdapter] setItem successful for ${key}`);
     } catch (error) {
-      supabaseLogger.error(`Error setting item in secure store: ${key}`, { error });
-      captureException(error as Error, { context: 'SecureStore', key });
+      supabaseLogger.error(`Error setting compressed item in secure store: ${key}`, { error });
+      captureException(error as Error, { context: 'SecureStore', key, operation: 'setItemCompressed' });
     }
   },
   removeItem: async (key: string): Promise<void> => {
+    supabaseLogger.debug(`[SecureStoreAdapter] removeItem called for key: ${key}`);
     try {
       await SecureStore.deleteItemAsync(key);
+      supabaseLogger.debug(`[SecureStoreAdapter] removeItem successful for ${key}`);
     } catch (error) {
       supabaseLogger.error(`Error removing item from secure store: ${key}`, { error });
       captureException(error as Error, { context: 'SecureStore', key });
@@ -56,6 +121,8 @@ export const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
+    debug: false, // Disable debug mode to reduce console logs
+    storageKey: 'dripmax-auth-token', // Use a custom key instead of the default one
   },
   global: {
     headers: {
@@ -65,13 +132,43 @@ export const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
 });
 supabaseLogger.info('Supabase client created');
 
+// Helper function to purge all auth-related keys
+export const purgeAuthStorage = async (): Promise<void> => {
+  try {
+    // We'll attempt to delete both the custom and default tokens
+    const projectRef = 'iqvvgtmskgdbvvisgkxw'; // From looking at your error logs
+    const keysToDelete = [
+      `sb-${projectRef}-auth-token`,
+      'dripmax-auth-token',
+      'EXPO_SECURE_STORE_AUTH_TOKEN',
+      'auth-session'
+    ];
+    
+    for (const key of keysToDelete) {
+      try {
+        await SecureStore.deleteItemAsync(key);
+        supabaseLogger.debug(`Deleted auth token: ${key}`);
+      } catch (e) {
+        // Ignore individual deletion errors
+      }
+    }
+  } catch (error) {
+    supabaseLogger.error('Error purging auth storage', { error });
+  }
+};
+
 // Set up URL event listener for deep linking
 Linking.addEventListener('url', async ({ url }) => {
   if (url) {
-    const { data, error } = await supabase.auth.getSession();
-    if (error) {
-      supabaseLogger.error('Error getting session after URL event', { error: error.message });
-      captureException(error, { url });
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        supabaseLogger.error('Error getting session after URL event', { error: error.message });
+        captureException(error, { url });
+      }
+    } catch (e) {
+      // Silently handle any errors that might occur
+      // This prevents uncaught promise rejections from bubbling up
     }
   }
 });

@@ -30,6 +30,36 @@ import * as FaceDetector from 'expo-face-detector';
 import * as ImagePicker from 'expo-image-picker';
 import ActionButton from '../../../components/ActionButton';
 import { usePendingImageStore } from '../../../stores/pendingImageStore';
+import { trackEvent, trackOutfitWorkflow, trackOutfitActions } from '@/utils/analytics';
+import useScreenTracking from '../../../hooks/useScreenTracking';
+
+// Fashion fun facts to display during scanning
+const FASHION_FACTS = [
+  "The average person spends 6 months of their life choosing what to wear.",
+  "The color 'mauve' was the first synthetic dye ever created.",
+  "The concept of 'fashion shows' dates back to the 1800s.",
+  "In medieval Europe, only royalty could wear purple clothing.",
+  "Blue jeans were invented in 1873 by Levi Strauss.",
+  "The little black dress concept was created by Coco Chanel in 1926.",
+  "The term 'T-shirt' dates back to the 1920s, describing its T shape.",
+  "The necktie originated in 17th century Croatia.",
+  "High heels were originally created for men to appear taller.",
+  "The term 'fashionista' first appeared in print in 1993."
+];
+
+// Fun fashion scanning messages with emojis
+const SCANNING_MESSAGES = [
+  "👕 Looking for style patterns...",
+  "🧵 Analyzing fabric textures...",
+  "🌈 Checking color coordination...",
+  "👗 Measuring outfit synergy...",
+  "👠 Evaluating accessory choices...",
+  "💼 Calculating outfit vibe...",
+  "🧢 Examining proportions...",
+  "👚 Decoding fashion language...",
+  "👔 Running style algorithms...",
+  "👖 Preparing fashion assessment..."
+];
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -43,6 +73,11 @@ const cameraLogger = {
 };
 
 export default function CameraScreen() {
+  // Track screen view
+  useEffect(() => {
+    trackOutfitWorkflow.scanStarted();
+  }, []);
+
   const [permission, requestPermission] = useCameraPermissions();
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('back');
@@ -51,12 +86,15 @@ export default function CameraScreen() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [outfitId, setOutfitId] = useState<string | null>(null);
+  const [fashionFact, setFashionFact] = useState(FASHION_FACTS[0]);
+  const [scanMessage, setScanMessage] = useState(SCANNING_MESSAGES[0]);
   
   const cameraRef = useRef(null);
   const router = useRouter();
   const { addOutfit, getOutfitWithFeedback } = useOutfitStore();
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const scanLinePosition = useRef(new Animated.Value(0)).current;
+  const rotateValue = useRef(new Animated.Value(0)).current;
   const { pendingImageUri, clearPendingImage } = usePendingImageStore();
 
   // Automatically request permission when component mounts
@@ -89,13 +127,18 @@ export default function CameraScreen() {
   }, [pendingImageUri, clearPendingImage]);
 
   const toggleCameraFacing = () => {
-    setCameraFacing(current => current === 'back' ? 'front' : 'back');
-    cameraLogger.info('Camera facing switched', { facing: cameraFacing === 'back' ? 'front' : 'back' });
+    setCameraFacing(current => {
+      const newFacing = current === 'back' ? 'front' : 'back';
+      trackEvent('Camera Facing Changed', { facing: newFacing });
+      cameraLogger.info('Camera facing switched', { facing: newFacing });
+      return newFacing;
+    });
   };
 
   const toggleFlash = () => {
     setFlashMode(current => {
       const newMode = current === 'off' ? 'on' : 'off';
+      trackEvent('Flash Mode Changed', { mode: newMode });
       cameraLogger.info('Flash mode switched', { mode: newMode });
       return newMode;
     });
@@ -147,6 +190,12 @@ export default function CameraScreen() {
       cameraLogger.info('Taking picture...');
       setIsCapturing(true);
       
+      // Track event with standardized naming
+      trackOutfitWorkflow.photoTaken({
+        facing: cameraFacing,
+        flash: flashMode
+      });
+      
       // @ts-ignore - Needed because of typing issues with the camera ref
       const photo = await cameraRef.current.takePictureAsync({
         exif: false,
@@ -162,6 +211,11 @@ export default function CameraScreen() {
       // Directly set the captured image without any manipulation
       if (photo.uri) {
         setCapturedImage(photo.uri);
+        // Track preview shown
+        trackOutfitWorkflow.photoPreview({
+          width: photo.width,
+          height: photo.height
+        });
         cameraLogger.info('Photo set to state', { uri: photo.uri.substring(0, 30) + '...' });
       } else {
         throw new Error('Photo URI is missing');
@@ -169,6 +223,11 @@ export default function CameraScreen() {
     } catch (error) {
       cameraLogger.error('Failed to take picture', { 
         error: error instanceof Error ? error.message : String(error)
+      });
+      // Track failure
+      trackEvent('Error', {
+        error_type: 'Outfit Photo Capture Failed',
+        error_message: error instanceof Error ? error.message : String(error)
       });
       Alert.alert('Error', 'Failed to take picture. Please try again.');
     } finally {
@@ -183,6 +242,9 @@ export default function CameraScreen() {
     }
     
     try {
+      // Track event with standardized naming
+      trackOutfitWorkflow.analysisStarted();
+      
       // Check for multiple people before starting analysis
       if (!capturedImage) {
         throw new Error('No image captured');
@@ -218,6 +280,11 @@ export default function CameraScreen() {
         startAnalysis();
       }
     } catch (error) {
+      // Track error
+      trackEvent('Error', {
+        error_type: 'Outfit Analysis Failed',
+        error_message: error instanceof Error ? error.message : String(error)
+      });
       cameraLogger.error('Failed during analysis', { 
         error: error instanceof Error ? error.message : String(error)
       });
@@ -228,6 +295,12 @@ export default function CameraScreen() {
 
   const startAnalysis = async () => {
     setIsAnalyzing(true);
+    
+    // Set random fashion fact
+    setFashionFact(FASHION_FACTS[Math.floor(Math.random() * FASHION_FACTS.length)]);
+    
+    // Record start time for analytics
+    const startTime = Date.now();
     
     // Start progress animation
     setProgress(0);
@@ -271,46 +344,72 @@ export default function CameraScreen() {
       // Phase 4: Poll for feedback with incremental progress (50-95%)
       let attempts = 0;
       const maxAttempts = 30; // 30 seconds timeout
-      let feedback = null;
+      let hasFeedback = false;
       
-      // Calculate progress increment per poll attempt
-      const progressPerAttempt = Math.floor(45 / maxAttempts);
-      
-      while (!feedback && attempts < maxAttempts) {
+      while (attempts < maxAttempts && !hasFeedback) {
         attempts++;
-        updateProgress(
-          Math.min(50 + (attempts * progressPerAttempt), 95),
-          `Analyzing outfit (attempt ${attempts}/${maxAttempts})`
-        );
         
-        try {
-          const outfit = await getOutfitWithFeedback(newOutfitId);
+        // Calculate progress based on polling attempts
+        const pollProgress = 50 + Math.min(45, (attempts / maxAttempts) * 45);
+        updateProgress(pollProgress, `Processing outfit (attempt ${attempts}/${maxAttempts})`);
+        
+        // Check if the outfit has feedback yet
+        const outfit = await getOutfitWithFeedback(newOutfitId);
+        
+        if (outfit?.feedback) {
+          hasFeedback = true;
+          updateProgress(95, 'Outfit analysis complete');
           
-          if (outfit?.feedback && outfit.feedback.overall_feedback) {
-            feedback = outfit.feedback;
-            updateProgress(95, 'Analysis complete!');
-            break;
-          }
-        } catch (error) {
-          cameraLogger.error('Error polling for feedback', { 
-            error: error instanceof Error ? error.message : String(error),
-            attempt: attempts
-          });
+          // Record completion time for analytics
+          const completionTime = Date.now();
+          const processingTime = completionTime - startTime;
+          
+          // Track successful analysis
+          trackOutfitWorkflow.analysisCompleted(
+            newOutfitId,
+            processingTime,
+            { success: true, attempts: attempts }
+          );
+          trackOutfitActions.added(newOutfitId);
+          
+          // Navigate to the outfit detail with a short delay for better UX
+          setTimeout(() => {
+            updateProgress(100, 'Ready');
+            navigateToOutfitDetail(newOutfitId);
+          }, 500);
+          
+          return;
         }
         
-        // Wait before next poll
+        // Wait before trying again
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
-      // Phase 5: Complete and navigate (95-100%)
-      updateProgress(100, 'Ready');
-      
-      // Navigate to outfit detail with a short delay for UX
-      setTimeout(() => {
-        navigateToOutfitDetail(newOutfitId);
-      }, 500);
+      // If we get here, polling timed out without getting feedback
+      if (!hasFeedback) {
+        // Still track as completed but with timeout flag
+        trackOutfitWorkflow.analysisCompleted(
+          newOutfitId,
+          Date.now() - startTime,
+          { success: true, timeout: true }
+        );
+        trackOutfitActions.added(newOutfitId);
+        
+        updateProgress(95, 'Analysis taking longer than expected');
+        
+        // Navigate anyway after timeout
+        setTimeout(() => {
+          navigateToOutfitDetail(newOutfitId);
+        }, 1000);
+      }
       
     } catch (error) {
+      // Track error
+      trackEvent('Error', {
+        error_type: 'Outfit Analysis Processing Failed',
+        error_message: error instanceof Error ? error.message : String(error)
+      });
+      
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       cameraLogger.error('Failed to analyze outfit', { 
         error,
@@ -575,7 +674,39 @@ export default function CameraScreen() {
   // Start the scan animation when analyzing starts
   useEffect(() => {
     if (isAnalyzing) {
+      // Start scan line animation
       animateScanLine();
+      
+      // Set initial random messages
+      setScanMessage(SCANNING_MESSAGES[Math.floor(Math.random() * SCANNING_MESSAGES.length)]);
+      
+      // Start emoji spinning animation - back and forth like in AppLoadingScreen
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(rotateValue, {
+            toValue: 1,
+            duration: 1200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(rotateValue, {
+            toValue: 0,
+            duration: 1200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          })
+        ])
+      ).start();
+      
+      // Set up intervals to cycle through messages
+      const scanMessageInterval = setInterval(() => {
+        setScanMessage(SCANNING_MESSAGES[Math.floor(Math.random() * SCANNING_MESSAGES.length)]);
+      }, 3000);
+      
+      return () => {
+        clearInterval(scanMessageInterval);
+        rotateValue.stopAnimation();
+      };
     }
   }, [isAnalyzing]);
 
@@ -749,7 +880,7 @@ export default function CameraScreen() {
             </View>
           )}
           
-          {/* Scanning line */}
+          {/* Scanning line animation */}
           <Animated.View 
             style={[
               styles.scanLine,
@@ -763,18 +894,39 @@ export default function CameraScreen() {
               }
             ]}
           />
-        </View>
-        
-        {/* Transformed button with black background and green text during analysis */}
-        <TouchableOpacity 
-          style={[styles.analyzeButton, styles.analyzeButtonAnalyzing]}
-          disabled={true}
-        >
-          <View style={styles.buttonIconContainer}>
-            <ActivityIndicator size="small" color="white" />
+          
+          {/* Overlay with app-loading style progress indicator */}
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingContent}>
+              {/* Animated emoji and scanning message */}
+              <View style={styles.messageContainer}>
+                <Animated.Text 
+                  style={[
+                    styles.emojiIcon, 
+                    { 
+                      transform: [{ 
+                        rotate: rotateValue.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0deg', '360deg']
+                        })
+                      }] 
+                    }
+                  ]}
+                >
+                  {scanMessage.split(' ')[0]}
+                </Animated.Text>
+                <Text style={styles.scanningMessage}>
+                  {scanMessage.split(' ').slice(1).join(' ')}
+                </Text>
+              </View>
+            </View>
+            
+            {/* Logo at the bottom */}
+            <Text style={styles.logoTextBottom}>
+              dripmax
+            </Text>
           </View>
-          <Text style={styles.analyzeTextAnalyzing}>{getAnalysisText()}</Text>
-        </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -896,6 +1048,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     width: '100%',
+    paddingBottom: 25,
   },
   circleButton: {
     width: 45,
@@ -1047,13 +1200,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    height: 10,
+    height: 3,
     backgroundColor: '#00FF77',
     shadowColor: '#00FF77',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 10,
-    elevation: 5,
+    elevation: 8,
+    zIndex: 10,
   },
   buttonIconContainer: {
     marginRight: 12,
@@ -1099,7 +1253,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     position: 'absolute',
-    bottom: 20,
+    bottom: 35,
     zIndex: 10,
   },
   poseText: {
@@ -1123,5 +1277,115 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  factContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 30,
+    left: 20,
+    right: 20,
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#00FF77',
+    zIndex: 100,
+  },
+  factTitle: {
+    color: '#00FF77',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    fontFamily: 'SpaceMono',
+    opacity: 0.9,
+  },
+  factText: {
+    color: 'white',
+    fontSize: 13,
+    fontFamily: 'SpaceMono',
+    lineHeight: 18,
+    opacity: 0.8,
+  },
+  statusOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressCircleContainer: {
+    width: 120,
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  progressPercentage: {
+    position: 'absolute',
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  statusText: {
+    color: '#00FF77',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    fontFamily: 'SpaceMono',
+    textAlign: 'center',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoText: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    fontStyle: 'italic',
+    marginBottom: 30,
+    fontFamily: 'SpaceMono',
+  },
+  logoGreen: {
+    color: '#00FF77',
+  },
+  logoWhite: {
+    color: 'white',
+  },
+  scanningMessage: {
+    color: 'white',
+    fontSize: 20,
+    textAlign: 'center',
+    marginBottom: 25,
+    fontFamily: 'SpaceMono',
+  },
+  messageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiIcon: {
+    fontSize: 48,
+    marginBottom: 10,
+  },
+  logoTextBottom: {
+    color: '#00FF77',
+    fontSize: 36,
+    fontWeight: 'bold',
+    fontStyle: 'italic',
+    fontFamily: 'SpaceMono',
+    position: 'absolute',
+    bottom: 50,
+    alignSelf: 'center',
   },
 }); 

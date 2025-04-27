@@ -51,7 +51,7 @@ interface LoggerConfig {
 
 // Default configuration
 const defaultConfig: LoggerConfig = {
-  minLevel: LogLevel.INFO, // Only show INFO and above by default
+  minLevel: LogLevel.INFO, // Reset to INFO
   includeTimestamp: true,
   enabled: true,
   enabledCategories: [], // Empty means all categories are enabled

@@ -1,60 +1,66 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Image, Dimensions, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Dimensions, TouchableOpacity, Alert, Image } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useSubscription } from '../../hooks/useSubscription';
+import { useAppStateStore, AppState } from '../../stores/appStateStore';
 import { authLogger } from '../../utils/logger';
+import { Video, ResizeMode } from 'expo-av';
 
 export default function LoginScreen() {
   const { signInWithGoogle, signInWithApple, isLoading, error, isAuthenticated, session, user } = useAuth();
   const { 
     hasActiveSubscription, 
     isCheckingSubscription, 
-    ensureSubscriptionStatusChecked 
+    ensureSubscriptionStatusChecked,
+    hasRecentSubscriptionCheck
   } = useSubscription();
   
+  const { currentState, setAppState } = useAppStateStore();
   const [isNavigating, setIsNavigating] = useState(false);
+  const navigationAttempted = useRef(null);
   const router = useRouter();
   
   // Handle redirects based on auth state
   useEffect(() => {
-    if (isAuthenticated && !isNavigating && user) {
-      setIsNavigating(true);
+    // If the user is authenticated, ensure subscription status is checked
+    if (isAuthenticated && user && !isCheckingSubscription) {
+      // Use a ref to ensure this runs only once per user session
+      if (navigationAttempted.current === user.id) {
+        return; // Already checked for this user
+      }
+      navigationAttempted.current = user.id;
+
+      authLogger.info('User authenticated in login screen - ensuring subscription is checked');
       
-      const navigateBasedOnSubscription = async () => {
+      const checkSubscription = async () => {
+        setIsNavigating(true); // Still useful for showing loading indicator
         try {
-          authLogger.info('User authenticated in login screen - checking subscription', {
-            userId: user.id
-          });
-          
-          // Check subscription status
-          const hasSubscription = await ensureSubscriptionStatusChecked();
-          
-          authLogger.info(`Login screen subscription check result: ${hasSubscription ? 'SUBSCRIBED' : 'NOT SUBSCRIBED'}`);
-          
-          // Navigate based on subscription status
-          if (hasSubscription) {
-            authLogger.info('User has active subscription - navigating to protected area');
-            router.replace('/(protected)');
-          } else {
-            authLogger.info('User has no subscription - navigating to onboarding');
-            router.replace('/(onboarding)/capture');
-          }
+          await ensureSubscriptionStatusChecked();
+          authLogger.info('Login screen subscription check complete');
+          // AppNavigator will handle the state update and navigation
         } catch (error) {
-          authLogger.error('Error during login navigation', error);
-          // Default to onboarding on error
-          router.replace('/(onboarding)/capture');
+          authLogger.error('Error checking subscription after login', error);
+          // Optionally set an error state or alert?
         } finally {
           setIsNavigating(false);
         }
       };
       
-      navigateBasedOnSubscription();
+      checkSubscription();
+    } else if (!isAuthenticated) {
+      // Reset the check flag if the user logs out
+      navigationAttempted.current = null;
     }
-  }, [isAuthenticated, user, ensureSubscriptionStatusChecked, router, isNavigating]);
+  }, [
+    isAuthenticated, 
+    user, 
+    ensureSubscriptionStatusChecked, 
+    isCheckingSubscription // Add dependency
+  ]);
   
   const handleTerms = async () => {
     try {
@@ -135,18 +141,30 @@ export default function LoginScreen() {
         <Text style={styles.title}>
           dripmax
         </Text>
-        <Text style={styles.catchphrase}>
-          Rate your outfit out of 10.
-        </Text>
       </View>
       
       {/* Phone Preview Area */}
       <View style={styles.phonePreview}>
-        <Image 
-          source={require('../../assets/images/phone-placeholder.png')} 
-          style={styles.phoneMockup}
-          resizeMode="contain"
-        />
+        <View style={styles.phoneContainer}>
+          {/* Video positioned behind the frame */}
+          <View style={styles.videoContainer}>
+            <Video 
+              source={require('../../assets/images/screen-recording.m4v')}
+              style={styles.video}
+              resizeMode={ResizeMode.COVER}
+              isLooping
+              shouldPlay
+              isMuted
+            />
+          </View>
+          
+          {/* iPhone frame overlay */}
+          <Image 
+            source={require('../../assets/images/iphone-frame.png')}
+            style={styles.phoneFrame}
+            resizeMode="contain"
+          />
+        </View>
       </View>
       
       {/* Auth Buttons Area */}
@@ -197,8 +215,8 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'column',
     alignItems: 'center',
-    marginTop: height * 0.05,
-    marginBottom: 30,
+    marginTop: height * 0.02,
+    marginBottom: 10,
   },
   title: {
     fontFamily: 'RobotoMono',
@@ -206,20 +224,40 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontStyle: 'italic',
     color: '#00FF77',
-    marginBottom: 10,
-  },
-  catchphrase: {
-    color: 'white',
-    fontSize: 16,
-    textAlign: 'center',
-    opacity: 0.8,
-    maxWidth: '80%',
+    marginBottom: 0,
   },
   phonePreview: {
     alignItems: 'center',
     justifyContent: 'center',
     height: height * 0.5,
     marginBottom: 30,
+  },
+  phoneContainer: {
+    width: width * 0.9,
+    height: height * 0.55,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  phoneFrame: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    zIndex: 10, // Ensure frame is on top
+  },
+  videoContainer: {
+    position: 'absolute',
+    // Reduce width by ~10% from 73% to 66%
+    width: '60%',
+    height: '95%',
+    top: '2.5%', // Position to align with the frame's screen area
+    zIndex: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  video: {
+    width: '100%',
+    height: '100%',
   },
   phoneMockup: {
     width: width * 0.8,

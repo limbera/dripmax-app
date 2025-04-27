@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { AppState, useAppStateStore } from '../stores/appStateStore';
-import AppLoadingScreen from './AppLoadingScreen';
+import AppLoadingScreen, { DEV_MODE_ALWAYS_SHOW_LOADING } from './AppLoadingScreen';
 import { authLogger } from '../utils/logger';
 import { useAuthStore } from '../stores/authStore';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
-import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
+
+// Navigation debounce timeout in ms
+const NAVIGATION_DEBOUNCE_MS = 300;
 
 /**
  * AppNavigator manages navigation based on application state
@@ -19,78 +21,144 @@ export default function AppNavigator() {
     isInitialized,
     getTargetRoute,
     setAppState,
-    forceRefreshCounter
+    forceRefreshCounter,
+    authServiceReady,
+    subscriptionServiceReady,
+    notificationsReady,
+    setError
   } = useAppStateStore();
   
-  const { session } = useAuthStore();
-  const isAuthenticated = !!session;
+  const { 
+    session, 
+    isLoading: isAuthLoading,
+    initialized: authInitialized
+  } = useAuthStore();
   
-  const { updateSubscriptionStatus } = useAuth();
   const { 
     hasActiveSubscription, 
-    ensureSubscriptionStatusChecked,
-    isCheckingSubscription,
-    isInitialized: subscriptionInitialized 
-  } = useSubscription();
+    isLoading: isSubscriptionLoading,
+    isInitialized: subscriptionInitialized
+  } = useSubscriptionStore();
+  
+  const { ensureSubscriptionStatusChecked } = useSubscription();
   
   const router = useRouter();
   const mountTimeRef = useRef(Date.now());
   const lastNavigationRef = useRef<string | null>(null);
-  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const lastNavigationTimeRef = useRef<number>(0);
+  const navigationInProgressRef = useRef<boolean>(false);
+  const [isCheckingSubForNav, setIsCheckingSubForNav] = useState(false);
+  const finalStateDeterminationComplete = useRef(false);
   
-  // Coordinate authentication and subscription status
-  useEffect(() => {
-    if (!isInitialized() || isCheckingStatus || isCheckingSubscription) return;
+  // Helper function to check if navigation is allowed
+  const canNavigate = (route: string): boolean => {
+    const now = Date.now();
+    const timeSinceLastNav = now - lastNavigationTimeRef.current;
     
-    const checkStatusAndUpdateAppState = async () => {
-      setIsCheckingStatus(true);
-      
-      try {
-        if (isAuthenticated && subscriptionInitialized) {
-          // Force a fresh subscription check
-          authLogger.info('Checking subscription status in AppNavigator');
-          const hasSubscription = await ensureSubscriptionStatusChecked();
-          
-          // Update the subscription status in Auth hook
-          updateSubscriptionStatus(hasSubscription);
-          
-          // Update app state based on subscription
-          if (hasSubscription) {
-            if (currentState !== AppState.AUTHENTICATED_WITH_SUB) {
-              authLogger.info('Setting app state to AUTHENTICATED_WITH_SUB');
-              setAppState(AppState.AUTHENTICATED_WITH_SUB);
-            }
+    // Don't navigate if:
+    // 1. We're already navigating
+    // 2. We recently navigated (debounce)
+    // 3. We're trying to navigate to the same route
+    if (navigationInProgressRef.current) {
+      authLogger.debug(`Skipping navigation - already navigating`);
+      return false;
+    }
+    
+    if (timeSinceLastNav < NAVIGATION_DEBOUNCE_MS) {
+      authLogger.debug(`Debouncing navigation - last navigation was ${timeSinceLastNav}ms ago`);
+      return false;
+    }
+    
+    if (lastNavigationRef.current === route) {
+      authLogger.debug(`Skipping duplicate navigation to ${route}`);
+      return false;
+    }
+    
+    return true;
+  };
+  
+  // NEW: Effect to determine and set the final app state once initialization is complete
+  useEffect(() => {
+    // Create an async function inside the effect to use await
+    const determineState = async () => {
+      // --- Add Ref Check --- 
+      if (finalStateDeterminationComplete.current) {
+        authLogger.debug('AppNavigator: Final state already determined, skipping.');
+        return;
+      }
+
+      authLogger.debug('AppNavigator: Final state check', {
+        authServiceReady,
+        subscriptionServiceReady,
+        notificationsReady,
+        authInitialized,
+        subscriptionInitialized,
+        isAuthLoading,
+        isSubscriptionLoading,
+        isCheckingSubForNav // Log the local check state
+      });
+
+      // Wait until all init services report ready and main auth store is settled
+      const allServicesReady = authServiceReady && subscriptionServiceReady && notificationsReady;
+      const authStoreSettled = !isAuthLoading && authInitialized;
+
+      if (allServicesReady && authStoreSettled && !isCheckingSubForNav) {
+        try {
+          const currentSession = useAuthStore.getState().session;
+          let finalState: AppState;
+
+          if (!currentSession) {
+            // User is not authenticated
+            finalState = AppState.UNAUTHENTICATED;
+            authLogger.info('Final state determined: UNAUTHENTICATED');
+            if (currentState !== finalState) setAppState(finalState);
+            finalStateDeterminationComplete.current = true; // <-- Set flag
+
           } else {
-            if (currentState !== AppState.AUTHENTICATED_NO_SUB) {
-              authLogger.info('Setting app state to AUTHENTICATED_NO_SUB');
-              setAppState(AppState.AUTHENTICATED_NO_SUB);
+            // User is authenticated, now check subscription explicitly
+            authLogger.info('Auth settled, explicitly checking subscription status...');
+            setIsCheckingSubForNav(true); // Mark that we are checking sub
+            
+            const hasSubscription = await ensureSubscriptionStatusChecked(); // REMOVE: (true)
+            authLogger.info(`Explicit subscription check complete: ${hasSubscription}`);
+            
+            if (hasSubscription) {
+              finalState = AppState.AUTHENTICATED_WITH_SUB;
+            } else {
+              finalState = AppState.AUTHENTICATED_NO_SUB;
             }
+            authLogger.info(`Final state determined: ${finalState}`);
+            if (currentState !== finalState) setAppState(finalState);
+            finalStateDeterminationComplete.current = true; // <-- Set flag
           }
-        } else if (!isAuthenticated) {
-          // Not authenticated
-          if (currentState !== AppState.UNAUTHENTICATED) {
-            authLogger.info('Setting app state to UNAUTHENTICATED');
-            setAppState(AppState.UNAUTHENTICATED);
+
+        } catch (error) {
+          authLogger.error('Error determining final app state', error);
+          setError('Failed to determine application state.');
+        } finally {
+          // Ensure we reset the local checking flag
+          if (useAuthStore.getState().session) { // Only reset if we potentially started the check
+             setIsCheckingSubForNav(false);
           }
         }
-      } catch (error) {
-        authLogger.error('Error checking status in AppNavigator', error);
-      } finally {
-        setIsCheckingStatus(false);
+      } else {
+        authLogger.debug('Waiting for services/auth store to settle or sub check to finish...');
       }
     };
-    
-    checkStatusAndUpdateAppState();
+
+    determineState();
+
   }, [
-    isAuthenticated, 
-    hasActiveSubscription, 
-    currentState, 
-    setAppState, 
-    isInitialized,
+    // Dependencies: Only need initial readiness/auth state. Ref prevents re-run.
+    authServiceReady,
+    subscriptionServiceReady,
+    notificationsReady,
+    authInitialized,
+    isAuthLoading,
     ensureSubscriptionStatusChecked,
-    updateSubscriptionStatus,
-    subscriptionInitialized,
-    isCheckingSubscription
+    setAppState,
+    setError
+    // REMOVED: isCheckingSubForNav (ref handles re-entrancy)
   ]);
   
   // Safety timeout - if initialization takes too long, force a navigation
@@ -123,28 +191,30 @@ export default function AppNavigator() {
     authLogger.debug('AppNavigator mounted', { 
       currentState, 
       isInitialized: isInitialized(),
-      isAuthenticated,
+      isAuthLoading,
+      isSubscriptionLoading,
       mountTime: mountTimeRef.current
     });
     
     return () => {
       authLogger.debug('AppNavigator unmounted');
     };
-  }, [currentState, isInitialized, isAuthenticated]);
+  }, [currentState, isInitialized, isAuthLoading, isSubscriptionLoading]);
   
   // Handle navigation based on app state or forced refresh
   useEffect(() => {
     // Only navigate when initialization is complete and not checking status
-    if (isInitialized() && !isCheckingStatus && !isCheckingSubscription) {
+    if (isInitialized() && !isCheckingSubForNav && !isSubscriptionLoading) {
       const targetRoute = getTargetRoute();
       
-      // Avoid duplicate navigations to the same route
-      if (lastNavigationRef.current === targetRoute) {
-        authLogger.debug(`Skipping duplicate navigation to ${targetRoute}`);
+      // Check if navigation is allowed
+      if (!canNavigate(targetRoute)) {
         return;
       }
       
-      // Update last navigation reference
+      // Update navigation state
+      navigationInProgressRef.current = true;
+      lastNavigationTimeRef.current = Date.now();
       lastNavigationRef.current = targetRoute;
       
       authLogger.info(`Navigation to ${targetRoute} triggered by app state: ${currentState}`);
@@ -153,15 +223,21 @@ export default function AppNavigator() {
       try {
         router.replace(targetRoute);
         authLogger.debug('Router.replace called successfully');
+        
+        // Reset navigation state after a short delay
+        setTimeout(() => {
+          navigationInProgressRef.current = false;
+        }, NAVIGATION_DEBOUNCE_MS);
       } catch (error) {
         authLogger.error('Navigation error', { error: error instanceof Error ? error.message : String(error) });
+        navigationInProgressRef.current = false;
       }
     } else {
       authLogger.debug('Waiting before navigation', {
         currentState,
         isInitialized: isInitialized(),
-        isCheckingStatus,
-        isCheckingSubscription,
+        isCheckingSubForNav,
+        isSubscriptionLoading,
         elapsedTime: Date.now() - mountTimeRef.current
       });
     }
@@ -171,11 +247,23 @@ export default function AppNavigator() {
     getTargetRoute, 
     router, 
     forceRefreshCounter, 
-    isCheckingStatus,
-    isCheckingSubscription
+    isCheckingSubForNav,
+    isSubscriptionLoading
   ]);
   
-  // If not initialized, show loading screen
+  // In dev mode, show the loading screen as an overlay on top of the actual app content
+  // In normal mode, show loading screen only during initialization
+  if (DEV_MODE_ALWAYS_SHOW_LOADING) {
+    // Still initiate navigation if not initialized
+    if (!isInitialized()) {
+      return <AppLoadingScreen />;
+    }
+    
+    // When initialized, show both the regular app and the loading screen overlay
+    return <AppLoadingScreen />;
+  }
+  
+  // Standard behavior - show loading screen only during initialization
   if (!isInitialized()) {
     return <AppLoadingScreen />;
   }

@@ -31,12 +31,20 @@ interface AppStateStore {
   // Force refresh flag - use to trigger rerenders
   forceRefreshCounter: number;
   
+  // Readiness flags for initialization steps
+  authServiceReady: boolean;
+  subscriptionServiceReady: boolean;
+  notificationsReady: boolean;
+  
   // Actions
   setAppState: (state: AppState) => void;
   markStateComplete: (state: AppState) => void;
   setError: (message: string) => void;
   hideSplashScreen: () => Promise<void>;
   forceRefresh: () => void;
+  setAuthServiceReady: (isReady: boolean) => void;
+  setSubscriptionServiceReady: (isReady: boolean) => void;
+  setNotificationsReady: (isReady: boolean) => void;
   
   // Selectors
   isInitialized: () => boolean;
@@ -66,6 +74,9 @@ export const useAppStateStore = create<AppStateStore>()(
     error: null,
     splashScreenHidden: false,
     forceRefreshCounter: 0,
+    authServiceReady: false,
+    subscriptionServiceReady: false,
+    notificationsReady: false,
 
     setAppState: (state: AppState) => {
       const previousState = get().currentState;
@@ -156,6 +167,21 @@ export const useAppStateStore = create<AppStateStore>()(
       });
     },
 
+    setAuthServiceReady: (isReady: boolean) => {
+      authLogger.debug(`Setting authServiceReady: ${isReady}`);
+      set(store => { store.authServiceReady = isReady; });
+    },
+
+    setSubscriptionServiceReady: (isReady: boolean) => {
+      authLogger.debug(`Setting subscriptionServiceReady: ${isReady}`);
+      set(store => { store.subscriptionServiceReady = isReady; });
+    },
+
+    setNotificationsReady: (isReady: boolean) => {
+      authLogger.debug(`Setting notificationsReady: ${isReady}`);
+      set(store => { store.notificationsReady = isReady; });
+    },
+
     isInitialized: () => {
       const { currentState } = get();
       return (
@@ -176,8 +202,8 @@ export const useAppStateStore = create<AppStateStore>()(
         case AppState.AUTHENTICATED_WITH_SUB:
           return '/(protected)';
         case AppState.ERROR:
-          // Could have a dedicated error route, but login is safer
-          return '/(auth)/login';
+          // Route to the new error screen
+          return '/(auth)/error';
         default:
           // Should never happen in normal operation
           return '/(auth)/login';

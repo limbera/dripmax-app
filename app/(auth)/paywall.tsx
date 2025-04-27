@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { View, ActivityIndicator, Text, StyleSheet, SafeAreaView } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { View, ActivityIndicator, Text, StyleSheet, SafeAreaView, Animated, Easing } from 'react-native';
+import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
+import { CommonActions } from '@react-navigation/native';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useAuth } from '../../hooks/useAuth';
 import { usePendingImageStore } from '../../stores/pendingImageStore';
 import { authLogger } from '../../utils/logger';
-import PaywallGuard from '../../components/PaywallGuard';
 
 export default function PaywallScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const { 
     currentOffering, 
@@ -22,6 +23,10 @@ export default function PaywallScreen() {
   const { pendingImageUri } = usePendingImageStore();
   const [isProcessing, setIsProcessing] = useState(false);
   const hasLoadedOfferings = useRef(false);
+  
+  // Add fade transition animation
+  const fadeAnimation = useRef(new Animated.Value(0)).current;
+  const [isPaywallReady, setIsPaywallReady] = useState(false);
 
   // Make sure offerings are loaded only once
   useEffect(() => {
@@ -32,13 +37,22 @@ export default function PaywallScreen() {
         hasLoadedOfferings.current = true;
         await refreshOfferings();
         authLogger.info('[Paywall] Offerings refreshed');
+        
+        // When offerings are loaded, mark paywall as ready and fade it in
+        setIsPaywallReady(true);
+        Animated.timing(fadeAnimation, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }).start();
       } catch (error) {
         authLogger.error('[Paywall] Error refreshing offerings', error);
       }
     };
     
     loadOfferings();
-  }, [refreshOfferings]);
+  }, [refreshOfferings, fadeAnimation]);
 
   // Debug console logs to help track the issue - but only log once
   useEffect(() => {
@@ -57,35 +71,51 @@ export default function PaywallScreen() {
     authLogger.info('[Paywall] Subscription successful, navigating');
     
     try {
-      // Update subscription status
+      // Update subscription status - FORCE REFRESH
       const hasSubscription = await ensureSubscriptionStatusChecked();
       authLogger.info(`[Paywall] Subscription check after purchase: ${hasSubscription ? 'ACTIVE' : 'INACTIVE'}`);
       
-      // Update the auth store
+      // This might still be needed if AppNavigator hasn't updated the auth state yet
       updateSubscriptionStatus(hasSubscription);
+
+      if (!hasSubscription) {
+         // Should not happen ideally, but handle defensively
+         authLogger.warn('[Paywall] Purchase reported success but check shows inactive. Navigating to onboarding.');
+         router.replace('/(onboarding)/capture'); 
+         return;
+      }
       
-      // Navigate to protected area
+      // --- Reset Navigation Stack --- 
       if (pendingImageUri) {
-        // If there's a pending image, go to camera to process it
-        authLogger.info('[Paywall] Pending image found, navigating to camera for processing', {
-          pendingImageUri: pendingImageUri.substring(0, 30) + '...'
-        });
-        router.replace('/(protected)/camera');
+        // If there's a pending image, reset stack to Drips -> Camera
+        authLogger.info('[Paywall] Pending image found, resetting stack to /(protected)/camera');
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 1, // Camera is active
+            routes: [
+              { name: '(protected)' as never }, // Use screen name or path
+              { name: '(protected)/camera' as never } // Use screen name or path
+            ],
+          })
+        );
       } else {
-        // Otherwise go to main protected area
-        authLogger.info('[Paywall] No pending image, navigating to main protected area');
-        router.replace('/(protected)');
+        // Otherwise reset stack to just Drips
+        authLogger.info('[Paywall] No pending image, resetting stack to /(protected)');
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0, // Drips is active
+            routes: [
+              { name: '(protected)' as never } // Use screen name or path
+            ],
+          })
+        );
       }
     } catch (error) {
       authLogger.error('[Paywall] Error after subscription', error);
-      // Navigate anyway - make sure we check for pending image even on error
-      if (pendingImageUri) {
-        router.replace('/(protected)/camera');
-      } else {
-        router.replace('/(protected)');
-      }
+      // Fallback: Navigate to login on error
+      router.replace('/(auth)/login');
     }
-  }, [router, ensureSubscriptionStatusChecked, pendingImageUri, updateSubscriptionStatus]);
+  }, [navigation, ensureSubscriptionStatusChecked, pendingImageUri, updateSubscriptionStatus]);
 
   // Handle successful purchase
   const handlePurchaseCompleted = useCallback((data: { customerInfo: any }) => {
@@ -115,34 +145,32 @@ export default function PaywallScreen() {
 
   // Render the RevenueCat UI Paywall
   const renderPaywall = () => {
-    if (isSubscriptionLoading || !currentOffering) {
-      return (
-        <SafeAreaView style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#00FF77" />
-          <Text style={styles.loadingText}>
-            Loading subscription options...
-          </Text>
-        </SafeAreaView>
-      );
-    }
-
+    // Always preload and render the RevenueCat UI, but with opacity 0 until ready
     return (
       <View style={styles.container}>
-        <RevenueCatUI.Paywall
-          options={currentOffering ? { offering: currentOffering } : undefined}
-          onPurchaseCompleted={handlePurchaseCompleted}
-          onRestoreCompleted={handleRestoreCompleted}
-          onDismiss={handlePaywallDismiss}
-        />
+        {currentOffering ? (
+          <Animated.View style={[styles.container, { opacity: fadeAnimation }]}>
+            <RevenueCatUI.Paywall
+              options={currentOffering ? { offering: currentOffering } : undefined}
+              onPurchaseCompleted={handlePurchaseCompleted}
+              onRestoreCompleted={handleRestoreCompleted}
+              onDismiss={handlePaywallDismiss}
+            />
+          </Animated.View>
+        ) : (
+          <SafeAreaView style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#00FF77" />
+            <Text style={styles.loadingText}>
+              Loading subscription options...
+            </Text>
+          </SafeAreaView>
+        )}
       </View>
     );
   };
 
-  return (
-    <PaywallGuard>
-      {renderPaywall()}
-    </PaywallGuard>
-  );
+  // Removed PaywallGuard wrapper, directly render the paywall
+  return renderPaywall();
 }
 
 const styles = StyleSheet.create({

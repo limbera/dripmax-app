@@ -28,8 +28,14 @@ module.exports = {
           NSCameraUsageDescription: "Allow Dripmax to access your camera to capture and analyze your outfits.",
           NSPhotoLibraryUsageDescription: "Allow Dripmax to access your photos to save and share your outfit captures.",
           NSUserNotificationUsageDescription: "We'll send you updates about your outfits and new app features.",
-          NSLocationWhenInUseUsageDescription: "Dripmax needs access to your location to provide location-specific features and experiences."
-        }
+          NSLocationWhenInUseUsageDescription: "Dripmax needs access to your location to provide location-specific features and experiences.",
+          NSCameraUsageDescription: "Allow Dripmax to access your camera to take photos of your outfits and wardrobe items.",
+          NSPhotoLibraryUsageDescription: "Allow Dripmax to access your photo library to save and upload photos of your outfits and wardrobe items.",
+          NSPhotoLibraryAddUsageDescription: "Allow Dripmax to access your photo library to save photos of your outfits and wardrobe items.",
+          NSFaceIDUsageDescription: "Allow Dripmax to use Face ID to protect your account.",
+          UIBackgroundModes: ["remote-notification"],
+        },
+        associatedDomains: ["applinks:dripmax.app"],
       },
       
       // Android configuration
@@ -143,7 +149,8 @@ module.exports = {
         revenuecatGoogleApiKey: process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY,
         oneSignalAppId: process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID,
         sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-        environment: process.env.EXPO_PUBLIC_ENVIRONMENT
+        environment: process.env.EXPO_PUBLIC_ENVIRONMENT,
+        mixpanelToken: process.env.EXPO_PUBLIC_MIXPANEL_PROJECT_TOKEN || '',
       },
       
       owner: "limbera",

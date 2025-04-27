@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { Stack, useRouter } from 'expo-router';
 import { supabase } from '../../../services/supabase';
+import Constants from 'expo-constants';
 
 export default function ProfileScreen() {
   const { user, signOut, isLoading } = useAuth();
@@ -246,7 +247,7 @@ export default function ProfileScreen() {
         </View>
         
         <Text style={styles.versionText}>
-          Version 1.0.0
+          Version {Constants.expoConfig?.version || '1.1.0'}
         </Text>
       </View>
     </>

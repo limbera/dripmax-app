@@ -12,6 +12,7 @@ import { initSentry } from '../services/sentry';
 import AppNavigator from '../components/AppNavigator';
 import { useAppInitialization } from '../hooks/useAppInitialization';
 import { authLogger } from '../utils/logger';
+import MixpanelProvider from '../components/MixpanelProvider';
 
 // Prevent the splash screen from auto-hiding before our app state management takes over
 try {
@@ -107,10 +108,12 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        {/* Use Slot for page rendering and AppNavigator for initialization and navigation */}
-        <Slot />
-        <AppNavigator />
-        <StatusBar style="auto" />
+        <MixpanelProvider>
+          {/* Use Slot for page rendering and AppNavigator for initialization and navigation */}
+          <Slot />
+          <AppNavigator />
+          <StatusBar style="auto" />
+        </MixpanelProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

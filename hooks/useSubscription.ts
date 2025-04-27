@@ -94,7 +94,7 @@ export const useSubscription = () => {
     };
     
     identifyRevenueCatUser();
-  }, [isInitialized, isAuthenticated, user?.id, identifyUser, resetUser, checkEntitlementStatus, isCheckingSubscription]);
+  }, [isInitialized, isAuthenticated, user?.id, identifyUser, resetUser, checkEntitlementStatus, isCheckingSubscription, hasActiveSubscription]);
 
   // Refresh offerings when needed
   const refreshOfferings = useCallback(async () => {
@@ -109,16 +109,20 @@ export const useSubscription = () => {
     return false;
   }, [isInitialized, fetchOfferings]);
   
-  // Force subscription check - useful when we need a guaranteed fresh check
+  // Force subscription check - simplified to always check
   const forceSubscriptionCheck = useCallback(async () => {
+    // Simplified check
     if (!isInitialized || isCheckingSubscription) {
+      // Still return current store value if not ready to check
       return hasActiveSubscription;
     }
     
     setIsCheckingSubscription(true);
     try {
-      const hasSubscription = await ensureSubscriptionStatusChecked();
-      authLogger.info(`Forced subscription check result: ${hasSubscription ? 'SUBSCRIBED' : 'NOT SUBSCRIBED'}`);
+      // Always call checkEntitlementStatus directly
+      const hasSubscription = await checkEntitlementStatus(); 
+      authLogger.info(`Subscription check result: ${hasSubscription ? 'SUBSCRIBED' : 'NOT SUBSCRIBED'}`);
+      
       return hasSubscription;
     } catch (error) {
       authLogger.error('Error during forced subscription check', error);
@@ -126,7 +130,7 @@ export const useSubscription = () => {
     } finally {
       setIsCheckingSubscription(false);
     }
-  }, [isInitialized, ensureSubscriptionStatusChecked, hasActiveSubscription, isCheckingSubscription]);
+  }, [isInitialized, checkEntitlementStatus, hasActiveSubscription, isCheckingSubscription]);
 
   return {
     isLoading: isLoading || isCheckingSubscription,
@@ -139,8 +143,8 @@ export const useSubscription = () => {
     purchasePackage,
     restorePurchases,
     checkEntitlementStatus,
-    ensureSubscriptionStatusChecked: forceSubscriptionCheck, // Replace with our improved version
+    ensureSubscriptionStatusChecked: forceSubscriptionCheck,
     isCheckingSubscription,
-    isInitialized
+    isInitialized,
   };
 }; 

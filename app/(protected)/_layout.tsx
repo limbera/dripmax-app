@@ -110,7 +110,7 @@ export default function ProtectedLayout() {
       <Stack.Screen
         name="camera"
         options={{
-          title: 'Take Photo',
+          headerShown: false,
           presentation: 'card',
           animation: 'slide_from_right',
         }}

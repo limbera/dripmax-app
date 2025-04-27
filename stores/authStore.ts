@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { supabase, setupAuthStateListener, ensureGarmentsBucket } from '../services/supabase';
+import { supabase, setupAuthStateListener, ensureGarmentsBucket, purgeAuthStorage } from '../services/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
@@ -13,6 +13,8 @@ import Constants from 'expo-constants';
 import { linkUserWithNotifications, unlinkUserFromNotifications } from '../utils/notificationUtils';
 import { useOutfitStore } from './outfitStore';
 import { useSubscriptionStore } from './subscriptionStore';
+import { trackEvent, ANALYTICS_EVENTS, resetUser as resetAnalyticsUser } from '../utils/analytics';
+import * as SecureStore from 'expo-secure-store';
 
 // Define the WebBrowser result type to include the URL property
 interface WebBrowserAuthSessionResult {
@@ -33,6 +35,7 @@ interface AuthState {
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
   setupAuthListener: () => () => void;
+  cleanAuthTokens: () => Promise<boolean>;
 }
 
 // Register the redirect URI for deep linking
@@ -286,6 +289,15 @@ export const useAuthStore = create<AuthState>()(
                     state.isLoading = false;
                   });
                   
+                  // Track the sign in event
+                  try {
+                    trackEvent(ANALYTICS_EVENTS.USER_SIGNED_IN, {
+                      method: 'google'
+                    });
+                  } catch (analyticsError) {
+                    authLogger.error('Error tracking sign in event', { error: analyticsError });
+                  }
+                  
                   return;
                 } catch (exchangeError: any) {
                   authLogger.error('Error during code exchange', { error: exchangeError.message, stack: exchangeError.stack });
@@ -400,6 +412,15 @@ export const useAuthStore = create<AuthState>()(
           state.user = sessionData.session?.user || null;
           state.isLoading = false;
         });
+
+        // Track the sign in event
+        try {
+          trackEvent(ANALYTICS_EVENTS.USER_SIGNED_IN, {
+            method: 'apple'
+          });
+        } catch (analyticsError) {
+          authLogger.error('Error tracking sign in event', { error: analyticsError });
+        }
       } catch (error: any) {
         // If the user cancels the Apple sign-in, don't treat it as an error
         if (error.code === 'ERR_CANCELED') {
@@ -445,6 +466,14 @@ export const useAuthStore = create<AuthState>()(
           set(state => { state.isLoading = true; });
         }
         
+        // Track the sign out event before resetting identity
+        try {
+          trackEvent(ANALYTICS_EVENTS.USER_SIGNED_OUT);
+          resetAnalyticsUser();
+        } catch (analyticsError) {
+          authLogger.error('Error tracking sign out event', { error: analyticsError });
+        }
+        
         // Unlink user from OneSignal
         await unlinkUserFromNotifications();
         
@@ -467,6 +496,16 @@ export const useAuthStore = create<AuthState>()(
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
         
+        // Force clean all auth tokens from secure store
+        try {
+          // Use the centralized helper to purge auth storage
+          await purgeAuthStorage();
+          authLogger.debug('Auth tokens cleaned');
+        } catch (cleanupError) {
+          // Don't fail the sign out process for token cleanup failures
+          authLogger.error('Error cleaning up auth tokens', cleanupError);
+        }
+        
         // Add a small delay to ensure the transition manager has time to detect the sign-out
         await new Promise(resolve => setTimeout(resolve, 300));
         
@@ -484,6 +523,17 @@ export const useAuthStore = create<AuthState>()(
         });
       }
     },
+
+    // Add a new function to force clean all auth tokens
+    cleanAuthTokens: async () => {
+      try {
+        await purgeAuthStorage();
+        return true;
+      } catch (error: any) {
+        authLogger.error('Error force cleaning auth tokens', error);
+        return false;
+      }
+    }
   }))
 );
 

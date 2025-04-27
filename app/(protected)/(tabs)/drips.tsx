@@ -23,6 +23,7 @@ import { getTransformedImageUrl } from '../../../services/supabase';
 import { router } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
 import ActionButton from '../../../components/ActionButton';
+import { trackEvent, trackScreenView, trackOutfitActions } from '@/utils/analytics';
 
 // Get screen dimensions for grid layout
 const { width } = Dimensions.get('window');
@@ -83,6 +84,11 @@ export default function DripsScreen() {
 
   const [permission, requestPermission] = useCameraPermissions();
 
+  // Track screen view when component mounts
+  useEffect(() => {
+    trackScreenView('Drips Screen');
+  }, []);
+
   // Fetch outfits when component mounts
   useEffect(() => {
     fetchOutfits();
@@ -95,6 +101,9 @@ export default function DripsScreen() {
 
   // Navigate to outfit details
   const navigateToOutfitDetail = (outfitId: string) => {
+    // Track outfit viewed
+    trackOutfitActions.viewed(outfitId);
+    
     router.push(`/outfit/${outfitId}`);
   };
 
@@ -106,8 +115,11 @@ export default function DripsScreen() {
         // Request permission
         const { granted } = await requestPermission();
         if (granted) {
+          trackEvent('Camera Permission Granted');
           // If permission is granted, navigate to camera
           router.push('/(protected)/camera');
+        } else {
+          trackEvent('Camera Permission Denied');
         }
         // If not granted, the alert is shown by expo-camera
       } else {

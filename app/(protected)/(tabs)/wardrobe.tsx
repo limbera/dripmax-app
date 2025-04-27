@@ -17,6 +17,8 @@ import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchGarments, Garment, getTransformedImageUrl } from '../../../services/supabase';
 import ActionButton from '../../../components/ActionButton';
+import { trackEvent, trackScreenView } from '@/utils/analytics';
+import { ANALYTICS_EVENTS } from '@/services/mixpanel';
 
 // Constants for grid layout
 const COLUMN_COUNT = 3;
@@ -31,6 +33,11 @@ export default function WardrobeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track screen view when component mounts
+  useEffect(() => {
+    trackScreenView('Wardrobe Screen');
+  }, []);
 
   // Load garments when component mounts
   useEffect(() => {
@@ -58,10 +65,21 @@ export default function WardrobeScreen() {
       
       if (garmentsData) {
         setGarments(garmentsData);
+        
+        // Track wardrobe size
+        trackEvent('Wardrobe Loaded', {
+          wardrobe_size: garmentsData.length
+        });
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load garments');
       Alert.alert('Error', 'Failed to load your wardrobe. Please try again.');
+      
+      // Track error
+      trackEvent('Error', {
+        error_type: 'Wardrobe Load Error',
+        error_message: err.message || 'Failed to load garments'
+      });
     } finally {
       setLoading(false);
     }
@@ -76,11 +94,17 @@ export default function WardrobeScreen() {
 
   // Navigate to camera for adding new garment
   const navigateToCamera = () => {
+    trackEvent(ANALYTICS_EVENTS.GARMENT_ADDED, {
+      action: 'start'
+    });
     router.push('/garments/camera');
   };
 
   // Navigate to garment detail
   const navigateToGarmentDetail = (garmentId: string) => {
+    trackEvent(ANALYTICS_EVENTS.GARMENT_VIEWED, {
+      garment_id: garmentId
+    });
     router.push(`/garments/${garmentId}`);
   };
 
