@@ -40,13 +40,8 @@ export default function AuthCallback() {
         
         if (!isLoading && !isSubscriptionLoading) {
           if (isAuthenticated) {
-            if (hasActiveSubscription) {
-              navigationLogger.info('Authenticated with subscription, navigating to protected area');
-              router.replace('/(protected)');
-            } else {
-              navigationLogger.info('Authenticated without subscription, navigating to onboarding');
-              router.replace('/(onboarding)/capture');
-            }
+            navigationLogger.info('Authenticated, navigating to protected area');
+            router.replace('/(protected)');
           } else {
             navigationLogger.info('Not authenticated, navigating to login');
             router.replace('/(auth)/login');

@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, StatusBar, Dimensions, SafeAreaView, Animated, Easing } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { navigationLogger } from '../../utils/logger';
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -333,31 +334,17 @@ const WavingHand = () => {
 
 export default function ResultScreen() {
   const router = useRouter();
-  const { image } = useLocalSearchParams<{ image: string }>();
+  
+  useEffect(() => {
+    navigationLogger.info('[ResultScreen] Dummy results screen mounted.');
+  }, []);
   
   const handleSubscribe = () => {
-    // Navigate directly to paywall
-    console.log('[Results] Navigating to paywall');
+    navigationLogger.info('[ResultScreen] Navigating to paywall.');
     router.push({
       pathname: '/(auth)/paywall'
     });
   };
-
-  if (!image) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <Text style={{ color: 'white', fontFamily: 'RobotoMono-Regular', marginBottom: 20 }}>
-          No image found. Please take a photo first.
-        </Text>
-        <TouchableOpacity 
-          style={{ backgroundColor: '#333', padding: 12, borderRadius: 20 }}
-          onPress={() => router.back()}
-        >
-          <Text style={{ color: 'white', fontFamily: 'RobotoMono-Regular' }}>Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -374,10 +361,10 @@ export default function ResultScreen() {
           <Text style={styles.titleText}>👀 Reveal Your Results</Text>
         </View>
         
-        {/* Profile Photo */}
+        {/* Profile Photo - NOW WITH STATIC DUMMY IMAGE */}
         <View style={styles.profileContainer}>
           <Image 
-            source={{ uri: image }}
+            source={require('../../assets/images/dummy-image-woman.png')} // Changed to dummy-image-woman.png
             style={styles.profileImage}
             resizeMode="cover"
           />

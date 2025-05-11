@@ -63,6 +63,9 @@ export const useSubscriptionStore = create<SubscriptionState>()(
     error: null,
 
     initialize: async () => {
+      const initStart = Date.now();
+      subscriptionLogger.info(`Initialize Start (${initStart})`);
+      
       try {
         subscriptionLogger.info('Initializing RevenueCat');
         
@@ -73,12 +76,15 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
         // Set the log level for development
         if (__DEV__) {
+          subscriptionLogger.debug('Setting RevenueCat LogLevel to DEBUG');
           Purchases.setLogLevel(LOG_LEVEL.DEBUG);
         } else {
           Purchases.setLogLevel(LOG_LEVEL.ERROR);
         }
 
         // Configure RevenueCat with the appropriate API key
+        subscriptionLogger.debug('Configure Start');
+        const configureStart = Date.now();
         if (Platform.OS === 'ios') {
           subscriptionLogger.debug('Configuring RevenueCat for iOS');
           Purchases.configure({ apiKey: REVENUECAT_API_KEYS.ios });
@@ -86,19 +92,26 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           subscriptionLogger.debug('Configuring RevenueCat for Android');
           Purchases.configure({ apiKey: REVENUECAT_API_KEYS.android });
         }
+        subscriptionLogger.debug(`Configure End (${Date.now() - configureStart}ms)`);
 
         // Fetch initial offerings
+        subscriptionLogger.debug('Fetch Offerings Start');
+        const fetchStart = Date.now();
         await get().fetchOfferings();
+        subscriptionLogger.debug(`Fetch Offerings End (${Date.now() - fetchStart}ms)`);
 
         // Check the initial entitlement status
+        subscriptionLogger.debug('Check Entitlements Start');
+        const checkStart = Date.now();
         await get().checkEntitlementStatus();
+        subscriptionLogger.debug(`Check Entitlements End (${Date.now() - checkStart}ms)`);
 
         set(state => {
           state.isInitialized = true;
           state.isLoading = false;
         });
 
-        subscriptionLogger.info('RevenueCat initialization complete');
+        subscriptionLogger.info(`RevenueCat Initialization Complete (${Date.now() - initStart}ms total)`);
       } catch (error: any) {
         subscriptionLogger.error('Error initializing RevenueCat', { 
           error: error.message, 
@@ -162,6 +175,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
     },
 
     fetchOfferings: async () => {
+      const fetchStart = Date.now();
+      subscriptionLogger.debug(`fetchOfferings Start (${fetchStart})`);
       try {
         subscriptionLogger.debug('Fetching RevenueCat offerings');
         
@@ -192,6 +207,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             state.isLoading = false;
           });
         }
+        subscriptionLogger.debug(`fetchOfferings End (${Date.now() - fetchStart}ms)`);
       } catch (error: any) {
         subscriptionLogger.error('Error fetching offerings', { 
           error: error.message, 
@@ -310,6 +326,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
     },
 
     checkEntitlementStatus: async () => {
+      const checkStart = Date.now();
+      subscriptionLogger.debug(`checkEntitlementStatus Start (${checkStart})`);
       try {
         subscriptionLogger.debug('Checking entitlement status');
         
@@ -330,6 +348,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           state.hasActiveSubscription = hasActiveSubscription;
         });
         
+        subscriptionLogger.debug(`checkEntitlementStatus End (${Date.now() - checkStart}ms)`);
         return hasActiveSubscription;
       } catch (error: any) {
         subscriptionLogger.error('Error checking entitlement status', { 

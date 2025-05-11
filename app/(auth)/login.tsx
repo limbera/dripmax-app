@@ -159,11 +159,11 @@ export default function LoginScreen() {
           </View>
           
           {/* iPhone frame overlay */}
-          <Image 
+          {/* <Image 
             source={require('../../assets/images/iphone-frame.png')}
             style={styles.phoneFrame}
             resizeMode="contain"
-          />
+          /> */}
         </View>
       </View>
       
@@ -239,12 +239,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  phoneFrame: {
+  /* phoneFrame: {
     position: 'absolute',
     width: '100%',
     height: '100%',
     zIndex: 10, // Ensure frame is on top
-  },
+  }, */
   videoContainer: {
     position: 'absolute',
     // Reduce width by ~10% from 73% to 66%

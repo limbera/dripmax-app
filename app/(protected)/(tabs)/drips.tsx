@@ -24,6 +24,8 @@ import { router } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
 import ActionButton from '../../../components/ActionButton';
 import { trackEvent, trackScreenView, trackOutfitActions } from '@/utils/analytics';
+import { useSubscription } from '../../../hooks/useSubscription';
+import { navigationLogger } from '../../../utils/logger';
 
 // Get screen dimensions for grid layout
 const { width } = Dimensions.get('window');
@@ -71,6 +73,7 @@ export default function DripsScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
+  const { hasActiveSubscription } = useSubscription();
   
   // Use the outfit store
   const { 
@@ -129,6 +132,18 @@ export default function DripsScreen() {
     } catch (error) {
       console.error('Error requesting camera permission:', error);
       Alert.alert('Error', 'Failed to access camera. Please try again.');
+    }
+  };
+
+  // New handler for "Begin Scan" button
+  const handleBeginScanPress = async () => {
+    navigationLogger.info('[DripsScreen] Begin Scan tapped.', { subscribed: hasActiveSubscription });
+    if (hasActiveSubscription) {
+      navigationLogger.info('[DripsScreen] User is subscribed. Proceeding to real scan flow.');
+      await navigateToCamera(); // Call existing camera navigation logic
+    } else {
+      navigationLogger.info('[DripsScreen] User is not subscribed. Navigating to dummy results screen.');
+      router.push('/(onboarding)/results');
     }
   };
 
@@ -265,7 +280,7 @@ export default function DripsScreen() {
       {/* Floating Begin Scan button */}
       <ActionButton
         label="BEGIN SCAN"
-        onPress={navigateToCamera}
+        onPress={handleBeginScanPress}
         animation="chevron-sequence"
         style={styles.floatingButton}
       />

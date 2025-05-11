@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { supabase } from '../services/supabase';
 import { outfitLogger } from '../utils/logger';
+import { trackOutfitActions } from '@/utils/analytics';
 
 // Define the types for our data structures
 export interface Outfit {
@@ -226,6 +227,9 @@ export const useOutfitStore = create<OutfitState>()(
 
         const outfitId = data.id;
         outfitLogger.debug('Successfully added outfit', { outfitId });
+
+        // Track the outfit added event
+        trackOutfitActions.added(outfitId);
 
         // Refresh the outfits list to include the new one
         await get().fetchOutfits();

@@ -10,6 +10,7 @@ import { getTransformedImageUrl, supabase } from '../../../services/supabase';
 import ViewShot from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
+import { trackOutfitActions } from '@/utils/analytics';
 
 // Score labels based on rating
 const SCORE_LABELS = {
@@ -486,11 +487,18 @@ export default function OutfitDetailScreen() {
       outfitLogger.info('Captured image for sharing', { uri: uri.substring(0, 30) + '...' });
       
       // Share the image
-      await Share.share({
+      const result = await Share.share({
         url: uri, // iOS only
         message: Platform.OS === 'android' ? uri : '', // Android needs the URI in the message
         title: `My ${(outfit.feedback.score || 7.8).toFixed(1)}/10 Outfit Rating - dripmax.ai`
       });
+
+      if (result.action === Share.sharedAction) {
+        const shareMethod = result.activityType || 'unknown';
+        trackOutfitActions.shared(outfitId, shareMethod, { share_type: 'score_card' });
+        outfitLogger.debug('Outfit score card shared', { outfitId, shareMethod });
+      }
+
     } catch (error) {
       outfitLogger.error('Error sharing outfit image', { error: error instanceof Error ? error.message : String(error) });
       Alert.alert('Error', 'Failed to share image.');
@@ -527,6 +535,9 @@ export default function OutfitDetailScreen() {
         await MediaLibrary.createAlbumAsync('Dripmax', asset, false);
       }
       
+      trackOutfitActions.saved(outfitId, { save_type: 'score_card' });
+      outfitLogger.debug('Outfit score card saved', { outfitId });
+
       Alert.alert('Success', 'Image saved to your photo library!');
     } catch (error) {
       outfitLogger.error('Error saving outfit image', { error: error instanceof Error ? error.message : String(error) });

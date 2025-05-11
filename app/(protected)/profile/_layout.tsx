@@ -14,16 +14,6 @@ export default function ProfileLayout() {
           headerTintColor: 'white',
         }}
       />
-      <Stack.Screen
-        name="notifications"
-        options={{
-          title: 'Notifications',
-          headerStyle: {
-            backgroundColor: 'black',
-          },
-          headerTintColor: 'white',
-        }}
-      />
     </Stack>
   );
 } 

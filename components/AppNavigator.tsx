@@ -163,7 +163,7 @@ export default function AppNavigator() {
   
   // Safety timeout - if initialization takes too long, force a navigation
   useEffect(() => {
-    const SAFETY_TIMEOUT = 10000; // 10 seconds
+    const SAFETY_TIMEOUT = 30000; // Increase to 30 seconds
     
     const timeoutId = setTimeout(() => {
       const elapsedTime = Date.now() - mountTimeRef.current;

@@ -210,14 +210,10 @@ export default function WardrobeScreen() {
           />
         )}
         
-        {/* Floating Add Piece button */}
-        <ActionButton
-          label="ADD PIECE"
-          onPress={navigateToCamera}
-          animation="double-pulse"
-          icon="plus"
-          style={styles.floatingButton}
-        />
+        {/* Floating Add Piece button - Replaced with Coming Soon */}
+        <View style={styles.comingSoonContainer}>
+          <Text style={styles.comingSoonText}>Feature coming soon...</Text>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -323,6 +319,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 5,
+  },
+  comingSoonContainer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 30,
+    right: 30,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    backgroundColor: '#333',
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  comingSoonText: {
+    color: '#AAA',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'RobotoMono-Regular',
   },
   addButtonText: {
     color: 'black',

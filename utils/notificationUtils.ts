@@ -101,32 +101,60 @@ export const saveNotificationPreferences = async (
   userId: string,
   preferences: NotificationPreferences
 ): Promise<void> => {
+  console.log('[NotificationUtils] Attempting to save preferences for userId:', userId, 'Preferences:', JSON.stringify(preferences));
   try {
     // Update the subscription status in OneSignal
+    console.log('[NotificationUtils] Calling notificationService.setSubscription with enabled:', preferences.enabled);
     notificationService.setSubscription(preferences.enabled);
+    console.log('[NotificationUtils] Called notificationService.setSubscription');
     
-    // Set tags for category preferences
+    const categoriesToSave = preferences.enabled 
+      ? preferences.categories 
+      : {
+          [NotificationCategory.NEW_FEATURES]: false,
+          [NotificationCategory.REMINDERS]: false,
+          [NotificationCategory.MARKETING]: false,
+          [NotificationCategory.ACCOUNT]: false,
+        };
+
+    console.log('[NotificationUtils] Calling notificationService.setTags with categories:', JSON.stringify(categoriesToSave));
     notificationService.setTags({
-      new_features: preferences.categories[NotificationCategory.NEW_FEATURES].toString(),
-      reminders: preferences.categories[NotificationCategory.REMINDERS].toString(),
-      marketing: preferences.categories[NotificationCategory.MARKETING].toString(),
-      account: preferences.categories[NotificationCategory.ACCOUNT].toString(),
+      new_features: categoriesToSave[NotificationCategory.NEW_FEATURES].toString(),
+      reminders: categoriesToSave[NotificationCategory.REMINDERS].toString(),
+      marketing: categoriesToSave[NotificationCategory.MARKETING].toString(),
+      account: categoriesToSave[NotificationCategory.ACCOUNT].toString(),
     });
+    console.log('[NotificationUtils] Called notificationService.setTags');
     
-    // Store preferences in user profile
-    const { error } = await supabase
+    // Store preferences in user profile using upsert
+    console.log('[NotificationUtils] Attempting to upsert preferences to Supabase for userId:', userId);
+    const { data, error } = await supabase
       .from('user_profiles')
-      .update({
-        notification_preferences: preferences,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
+      .upsert(
+        { 
+          id: userId, // Include the id for matching/inserting
+          notification_preferences: preferences,
+          updated_at: new Date().toISOString()
+        },
+        { 
+          onConflict: 'id', // Specify the conflict column
+          // Supabase versions <134 used `returning: 'representation'`
+          // Supabase versions >=134 (JS client v2) use `select()` for returning data
+          // Assuming JS client v2 or later, select() is chained after upsert
+        }
+      )
+      .select(); // Ensure we get the upserted data back
       
     if (error) {
-      console.error('Error saving notification preferences:', error);
+      console.error('[NotificationUtils] Error upserting notification preferences to Supabase:', error.message, 'Details:', error);
+    } else {
+      console.log('[NotificationUtils] Successfully upserted notification preferences to Supabase. Response:', JSON.stringify(data));
+      if (data && data.length === 0) {
+        console.warn('[NotificationUtils] Supabase upsert response was an empty array. This might indicate the RLS policy prevented the operation or the data being upserted was identical to existing data and no change was made.');
+      }
     }
   } catch (error) {
-    console.error('Error saving notification preferences:', error);
+    console.error('[NotificationUtils] Critical error in saveNotificationPreferences:', error);
   }
 };
 
@@ -136,22 +164,31 @@ export const saveNotificationPreferences = async (
 export const getNotificationPreferences = async (
   userId: string
 ): Promise<NotificationPreferences> => {
+  console.log('[NotificationUtils] Attempting to get preferences for userId:', userId);
   try {
     // Get preferences from user profile
-    const { data, error } = await supabase
+    const { data, error, status } = await supabase
       .from('user_profiles')
       .select('notification_preferences')
       .eq('id', userId)
       .single();
       
-    if (error || !data?.notification_preferences) {
-      // Return default preferences if not found
+    if (error && status !== 406) { // 406 means no rows found, which is not necessarily an error here
+      console.error('[NotificationUtils] Error getting notification preferences from Supabase:', error.message, 'Details:', error);
+      console.log('[NotificationUtils] Returning DEFAULT_NOTIFICATION_PREFERENCES due to Supabase error.');
       return DEFAULT_NOTIFICATION_PREFERENCES;
     }
     
+    if (!data?.notification_preferences) {
+      console.log('[NotificationUtils] No preferences found in Supabase for userId:', userId, 'or notification_preferences field is null. Returning DEFAULT_NOTIFICATION_PREFERENCES.');
+      return DEFAULT_NOTIFICATION_PREFERENCES;
+    }
+    
+    console.log('[NotificationUtils] Successfully retrieved preferences from Supabase:', JSON.stringify(data.notification_preferences));
     return data.notification_preferences as NotificationPreferences;
   } catch (error) {
-    console.error('Error getting notification preferences:', error);
+    console.error('[NotificationUtils] Critical error in getNotificationPreferences:', error);
+    console.log('[NotificationUtils] Returning DEFAULT_NOTIFICATION_PREFERENCES due to critical error.');
     return DEFAULT_NOTIFICATION_PREFERENCES;
   }
 }; 

@@ -65,46 +65,4 @@ export const resetUser = () => {
   }
 };
 
-// Analytics events constants
-export const ANALYTICS_EVENTS = {
-  // Authentication
-  SIGN_UP: 'Sign Up',
-  SIGN_IN: 'Sign In',
-  SIGN_OUT: 'Sign Out',
-  
-  // Onboarding
-  ONBOARDING_STARTED: 'Onboarding Started',
-  ONBOARDING_STEP_COMPLETED: 'Onboarding Step Completed',
-  ONBOARDING_COMPLETED: 'Onboarding Completed',
-  
-  // Outfit Analytics
-  OUTFIT_ADDED: 'Outfit Added',
-  OUTFIT_DELETED: 'Outfit Deleted', 
-  OUTFIT_VIEWED: 'Outfit Viewed',
-  OUTFIT_SHARED: 'Outfit Shared',
-  OUTFIT_SAVED: 'Outfit Saved',
-  
-  // Outfit Workflow
-  SCAN_STARTED: 'Scan Started',
-  PHOTO_TAKEN: 'Photo Taken',
-  PHOTO_PREVIEW: 'Photo Preview',
-  ANALYSIS_STARTED: 'Analysis Started',
-  ANALYSIS_COMPLETED: 'Analysis Completed',
-  
-  // Wardrobe Management
-  GARMENT_ADDED: 'Garment Added',
-  GARMENT_DELETED: 'Garment Deleted',
-  GARMENT_VIEWED: 'Garment Viewed',
-  
-  // General App Usage
-  APP_OPENED: 'App Opened',
-  SCREEN_VIEWED: 'Screen Viewed',
-  FEATURE_USED: 'Feature Used',
-  ERROR_OCCURRED: 'Error Occurred',
-  
-  // Subscription
-  SUBSCRIPTION_VIEWED: 'Subscription Viewed',
-  SUBSCRIPTION_STARTED: 'Subscription Started',
-  SUBSCRIPTION_COMPLETED: 'Subscription Completed',
-  SUBSCRIPTION_CANCELLED: 'Subscription Cancelled',
-}; 
+// The ANALYTICS_EVENTS object that was here has been removed. 

@@ -103,6 +103,7 @@ export const MixpanelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         '$email': user.email,
         '$name': user.user_metadata?.full_name || user.email,
         'Auth Provider': user.app_metadata?.provider || 'unknown',
+        '$created': user.created_at,
       });
       
       console.log('User identified in Mixpanel:', user.id);

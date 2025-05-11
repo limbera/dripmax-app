@@ -31,8 +31,14 @@ class NotificationService {
       OneSignal.initialize(ONESIGNAL_APP_ID);
       
       // IMPORTANT: Request permission immediately to ensure device registration
-      // This is critical for adding the device to your OneSignal audience
-      await this.promptForPushNotificationsWithUserResponse();
+      const permissionGranted = await this.promptForPushNotificationsWithUserResponse();
+      console.log('Result of promptForPushNotificationsWithUserResponse:', permissionGranted);
+
+      // Attempt to ensure subscription is active using the higher-level method
+      if (permissionGranted) {
+        console.log('Attempting to ensure subscription is active using setSubscription(true)');
+        this.setSubscription(true); // This calls optIn and requestPermission
+      }
 
       // Set up notification handlers
       this.setupNotificationHandlers();
@@ -42,9 +48,41 @@ class NotificationService {
       // Log subscription state to help diagnose issues
       setTimeout(async () => {
         try {
-          const permissionNative = await OneSignal.Notifications.permissionNative;
-          console.log('OneSignal permission state:', permissionNative);
-          console.log('OneSignal push subscription:', OneSignal.User.pushSubscription);
+          // No longer need to explicitly call optIn() here as setSubscription(true) should handle it.
+
+          let nativePermissionValue: boolean | string = 'unknown';
+          const permissionGetter = OneSignal.Notifications.permissionNative;
+          if (typeof permissionGetter === 'function') {
+            try {
+              nativePermissionValue = await (permissionGetter as () => Promise<boolean>)();
+            } catch (e) {
+              console.error('Error calling permissionNative as function:', e);
+              nativePermissionValue = 'Error calling function';
+            }
+          } else {
+            try {
+              nativePermissionValue = await permissionGetter;
+            } catch (e) {
+              console.error('Error awaiting permissionNative:', e);
+              nativePermissionValue = 'Error awaiting value';
+            }
+          }
+          console.log('OneSignal permission state (native evaluated):', nativePermissionValue);
+          
+          const subscriptionId = await OneSignal.User.pushSubscription.getIdAsync();
+          // const isOptedIn = OneSignal.User.pushSubscription.optedIn; // Likely not reliable in v5
+          let isOptedInAsyncValue: boolean | string = 'unknown';
+          try {
+            isOptedInAsyncValue = await OneSignal.User.pushSubscription.getOptedInAsync();
+          } catch (e) {
+            console.error('Error calling getOptedInAsync:', e);
+            isOptedInAsyncValue = 'Error calling getOptedInAsync';
+          }
+          console.log('OneSignal Push Subscription ID:', subscriptionId);
+          console.log('OneSignal User Opted In (from getOptedInAsync):', isOptedInAsyncValue);
+          
+          console.log('OneSignal pushSubscription object (direct):', OneSignal.User.pushSubscription);
+
         } catch (error) {
           console.error('Error checking OneSignal state:', error);
         }
@@ -109,8 +147,30 @@ class NotificationService {
     // since the TypeScript definitions don't include this event type
     setTimeout(async () => {
       try {
-        const permission = await OneSignal.Notifications.permissionNative;
-        console.log('OneSignal permission state checked:', permission);
+        let nativePermissionValue: boolean | string = 'unknown';
+        const permissionGetter = OneSignal.Notifications.permissionNative;
+        if (typeof permissionGetter === 'function') {
+          try {
+            nativePermissionValue = await (permissionGetter as () => Promise<boolean>)();
+          } catch (e) {
+            console.error('Error calling permissionNative as function during check:', e);
+            nativePermissionValue = 'Error calling function';
+          }
+        } else {
+          try {
+            nativePermissionValue = await permissionGetter;
+          } catch (e) {
+            console.error('Error awaiting permissionNative during check:', e);
+            nativePermissionValue = 'Error awaiting value';
+          }
+        }
+        console.log('OneSignal permission state checked (native evaluated):', nativePermissionValue);
+        
+        // Also log general permission from Expo module for iOS
+        if (Platform.OS === 'ios') {
+          const expoPermission = await Notifications.getPermissionsAsync();
+          console.log('Expo Notifications permission status (iOS):', expoPermission);
+        }
       } catch (error) {
         console.error('Error checking OneSignal permission:', error);
       }
@@ -173,14 +233,26 @@ class NotificationService {
   promptForPushNotificationsWithUserResponse = async (): Promise<boolean> => {
     try {
       if (Platform.OS === 'ios') {
-        // Request permission through Expo Notifications first
         const { status } = await Notifications.requestPermissionsAsync();
         const isGranted = status === Notifications.PermissionStatus.GRANTED;
         
         if (isGranted) {
-          // CRITICAL: This is what registers the device with OneSignal
-          console.log('Requesting OneSignal permission');
+          console.log('Requesting OneSignal permission (iOS)');
           OneSignal.Notifications.requestPermission(true);
+
+          setTimeout(async () => {
+            try {
+              const optedIn = OneSignal.User.pushSubscription.optedIn;
+              let nativePermValue: boolean | string = 'unknown';
+              const permGetter = OneSignal.Notifications.permissionNative;
+              if (typeof permGetter === 'function') nativePermValue = await (permGetter as () => Promise<boolean>)(); 
+              else nativePermValue = await permGetter;
+              console.log('OneSignal status immediately after iOS requestPermission: OptedIn:', optedIn, 'NativePermission:', nativePermValue);
+            } catch (e) {
+              console.error('Error logging status post iOS requestPermission:', e);
+            }
+          }, 1500);
+
           return true;
         }
         
@@ -188,9 +260,20 @@ class NotificationService {
         return isGranted;
       }
       
-      // On Android, OneSignal handles permissions automatically
       console.log('Requesting Android OneSignal permission');
       OneSignal.Notifications.requestPermission(true);
+      setTimeout(async () => {
+        try {
+          const optedIn = OneSignal.User.pushSubscription.optedIn;
+          let nativePermValue: boolean | string = 'unknown';
+          const permGetter = OneSignal.Notifications.permissionNative;
+          if (typeof permGetter === 'function') nativePermValue = await (permGetter as () => Promise<boolean>)(); 
+          else nativePermValue = await permGetter;
+          console.log('OneSignal status immediately after Android requestPermission: OptedIn:', optedIn, 'NativePermission:', nativePermValue);
+        } catch (e) {
+          console.error('Error logging status post Android requestPermission:', e);
+        }
+      }, 1500);
       return true;
     } catch (error) {
       console.error('Error requesting notification permissions:', error);
@@ -334,12 +417,14 @@ class NotificationService {
     try {
       console.log('Setting notification subscription:', enabled);
       if (enabled) {
-        // To enable notifications, request permission
-        OneSignal.Notifications.requestPermission(true);
+        // Ensure permissions are requested if not already granted, then opt-in
+        OneSignal.Notifications.requestPermission(true); // This is good for initial permission
+        OneSignal.User.pushSubscription.optIn();
+        console.log('OneSignal User opted in to push notifications');
       } else {
-        // To disable notifications, clear all current notifications
-        // Note: This doesn't actually disable future notifications
-        OneSignal.Notifications.clearAll();
+        // Opt-out the user from receiving push notifications
+        OneSignal.User.pushSubscription.optOut();
+        console.log('OneSignal User opted out of push notifications');
       }
     } catch (error) {
       console.error('Error setting subscription:', error);

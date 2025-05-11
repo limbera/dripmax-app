@@ -198,7 +198,7 @@ export const useAppStateStore = create<AppStateStore>()(
         case AppState.UNAUTHENTICATED:
           return '/(auth)/login';
         case AppState.AUTHENTICATED_NO_SUB:
-          return '/(onboarding)/capture';
+          return '/(protected)';
         case AppState.AUTHENTICATED_WITH_SUB:
           return '/(protected)';
         case AppState.ERROR:

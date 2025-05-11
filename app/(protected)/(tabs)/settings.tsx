@@ -16,7 +16,7 @@ export default function SettingsScreen() {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   
   const handleGiveFeedback = async () => {
-    const url = 'mailto:feedback@dripmax.app';
+    const url = 'mailto:feedback@drelimbo.com';
     const canOpen = await Linking.canOpenURL(url);
     
     if (canOpen) {
@@ -194,18 +194,6 @@ export default function SettingsScreen() {
             </View>
             <Text style={styles.buttonText}>
               Get Help
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.button}
-            onPress={handleNotificationSettings}
-          >
-            <View style={styles.buttonIconContainer}>
-              <Ionicons name="notifications-outline" size={24} color="white" />
-            </View>
-            <Text style={styles.buttonText}>
-              Notification Settings
             </Text>
           </TouchableOpacity>
           

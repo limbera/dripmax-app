@@ -7,6 +7,7 @@ import { useSubscription } from '../../hooks/useSubscription';
 import { useAuth } from '../../hooks/useAuth';
 import { usePendingImageStore } from '../../stores/pendingImageStore';
 import { authLogger } from '../../utils/logger';
+import { useSubscriptionStore } from '../../stores/subscriptionStore';
 
 export default function PaywallScreen() {
   const router = useRouter();
@@ -15,18 +16,15 @@ export default function PaywallScreen() {
   const { 
     currentOffering, 
     isLoading: isSubscriptionLoading, 
-    hasActiveSubscription, 
     ensureSubscriptionStatusChecked,
     refreshOfferings
   } = useSubscription();
   const { user, updateSubscriptionStatus } = useAuth();
   const { pendingImageUri } = usePendingImageStore();
-  const [isProcessing, setIsProcessing] = useState(false);
   const hasLoadedOfferings = useRef(false);
+  const justPurchasedOrRestored = useRef(false);
   
-  // Add fade transition animation
   const fadeAnimation = useRef(new Animated.Value(0)).current;
-  const [isPaywallReady, setIsPaywallReady] = useState(false);
 
   // Make sure offerings are loaded only once
   useEffect(() => {
@@ -38,8 +36,6 @@ export default function PaywallScreen() {
         await refreshOfferings();
         authLogger.info('[Paywall] Offerings refreshed');
         
-        // When offerings are loaded, mark paywall as ready and fade it in
-        setIsPaywallReady(true);
         Animated.timing(fadeAnimation, {
           toValue: 1,
           duration: 200,
@@ -56,8 +52,8 @@ export default function PaywallScreen() {
 
   // Debug console logs to help track the issue - but only log once
   useEffect(() => {
-    authLogger.debug('[Paywall] Current subscription status:', { 
-      hasActiveSubscription, 
+    authLogger.debug('[Paywall] Screen mounted. Current subscription status (from store):', { 
+      hasActiveSubscription: useSubscriptionStore.getState().hasActiveSubscription, 
       isLoading: isSubscriptionLoading,
       redirect,
       userId: user?.id,
@@ -69,77 +65,80 @@ export default function PaywallScreen() {
   // Navigate after successful subscription
   const handleSubscriptionSuccess = useCallback(async () => {
     authLogger.info('[Paywall] Subscription successful, navigating');
+    let targetRoute = '/(protected)';
     
     try {
-      // Update subscription status - FORCE REFRESH
       const hasSubscription = await ensureSubscriptionStatusChecked();
       authLogger.info(`[Paywall] Subscription check after purchase: ${hasSubscription ? 'ACTIVE' : 'INACTIVE'}`);
-      
-      // This might still be needed if AppNavigator hasn't updated the auth state yet
       updateSubscriptionStatus(hasSubscription);
 
       if (!hasSubscription) {
-         // Should not happen ideally, but handle defensively
-         authLogger.warn('[Paywall] Purchase reported success but check shows inactive. Navigating to onboarding.');
-         router.replace('/(onboarding)/capture'); 
+         authLogger.warn('[Paywall] Purchase reported success but check shows inactive. Navigating to protected area as fallback.');
+         router.replace('/(protected)');
          return;
       }
       
-      // --- Reset Navigation Stack --- 
       if (pendingImageUri) {
-        // If there's a pending image, reset stack to Drips -> Camera
-        authLogger.info('[Paywall] Pending image found, resetting stack to /(protected)/camera');
+        targetRoute = '/(protected)/camera';
+        authLogger.info(`[Paywall] Pending image found, resetting stack to ${targetRoute}`);
         navigation.dispatch(
           CommonActions.reset({
-            index: 1, // Camera is active
+            index: 1, 
             routes: [
-              { name: '(protected)' as never }, // Use screen name or path
-              { name: '(protected)/camera' as never } // Use screen name or path
+              { name: '(protected)' as never }, 
+              { name: '(protected)/camera' as never } 
             ],
           })
         );
       } else {
-        // Otherwise reset stack to just Drips
-        authLogger.info('[Paywall] No pending image, resetting stack to /(protected)');
+        targetRoute = '/(protected)';
+        authLogger.info(`[Paywall] No pending image, resetting stack to ${targetRoute}`);
         navigation.dispatch(
           CommonActions.reset({
-            index: 0, // Drips is active
+            index: 0, 
             routes: [
-              { name: '(protected)' as never } // Use screen name or path
+              { name: '(protected)' as never } 
             ],
           })
         );
       }
+      authLogger.info(`[Paywall] Navigation target after success: ${targetRoute}`);
     } catch (error) {
       authLogger.error('[Paywall] Error after subscription', error);
-      // Fallback: Navigate to login on error
       router.replace('/(auth)/login');
     }
-  }, [navigation, ensureSubscriptionStatusChecked, pendingImageUri, updateSubscriptionStatus]);
+  }, [navigation, ensureSubscriptionStatusChecked, pendingImageUri, updateSubscriptionStatus, router]);
 
   // Handle successful purchase
   const handlePurchaseCompleted = useCallback((data: { customerInfo: any }) => {
-    authLogger.info('[Paywall] Purchase completed, refreshing subscription status and navigating');
+    authLogger.info('[Paywall] Purchase completed, triggering subscription success flow.');
+    justPurchasedOrRestored.current = true;
     handleSubscriptionSuccess();
   }, [handleSubscriptionSuccess]);
 
   // Handle successful restore
   const handleRestoreCompleted = useCallback((data: { customerInfo: any }) => {
-    authLogger.info('[Paywall] Restore completed, checking subscription status');
+    authLogger.info('[Paywall] Restore completed, triggering subscription success flow.');
+    justPurchasedOrRestored.current = true;
     handleSubscriptionSuccess();
   }, [handleSubscriptionSuccess]);
 
-  // Handle paywall dismiss (either by close button or successful purchase)
+  // Handle paywall dismiss
   const handlePaywallDismiss = () => {
-    authLogger.info('[Paywall] Paywall dismissed, checking subscription status');
+    authLogger.info('[Paywall] Paywall dismiss action triggered.', { justPurchasedOrRestored: justPurchasedOrRestored.current });
     
-    // If user has subscription after dismiss, go to protected area
-    // Otherwise, go back to previous screen (user pressed close)
-    if (hasActiveSubscription) {
-      router.replace('/(protected)');
+    if (justPurchasedOrRestored.current) {
+      authLogger.info('[Paywall] Dismissed after a successful purchase/restore. Navigation handled by success callback.');
+      justPurchasedOrRestored.current = false;
     } else {
-      // Usually we'd go back, but in our flow we want to keep them here until they subscribe
-      // So we don't navigate away
+      if (useSubscriptionStore.getState().hasActiveSubscription) {
+        authLogger.info('[Paywall] Dismissed by an already subscribed user. No navigation needed or already handled.');
+      } else {
+        authLogger.info('[Paywall] Dismissed without purchase by a non-subscribed user. Navigating back.');
+        if (router.canGoBack()) {
+          router.back();
+        }
+      }
     }
   };
 

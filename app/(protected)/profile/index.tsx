@@ -17,7 +17,7 @@ export default function ProfileScreen() {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   
   const handleGiveFeedback = async () => {
-    const url = 'mailto:feedback@dripmax.app';
+    const url = 'mailto:feedback@drelimbo.com';
     const canOpen = await Linking.canOpenURL(url);
     
     if (canOpen) {
