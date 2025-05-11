@@ -104,7 +104,11 @@ export function useAppInitialization() {
         authLogger.info(`Starting initialization sequence (${Date.now() - debugTimestampRef.current}ms)`);
         setAppState(AppState.INITIALIZING);
         markStateComplete(AppState.INITIALIZING);
-        
+
+        // Hide splash screen as early as possible
+        authLogger.info(`Hiding splash screen early (${Date.now() - debugTimestampRef.current}ms)`);
+        await hideSplashScreen();
+
         // 2. Font loading - skip actual font loading to avoid getting stuck
         authLogger.info(`Moving to font loading state (${Date.now() - debugTimestampRef.current}ms)`);
         setAppState(AppState.LOADING_FONTS);
@@ -176,10 +180,6 @@ export function useAppInitialization() {
         }
         
         markStateComplete(AppState.INITIALIZING_NOTIFICATIONS);
-        
-        // 6. Hide splash screen
-        authLogger.info(`Hiding splash screen (${Date.now() - debugTimestampRef.current}ms)`);
-        await hideSplashScreen();
         
         // 8. Initialization complete
         initCompleted.current = true;
