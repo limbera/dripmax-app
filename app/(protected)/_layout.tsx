@@ -82,12 +82,13 @@ export default function ProtectedLayout() {
         name="initial-capture"
         options={{
           title: 'Capture Outfit',
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="pre-paywall-flow"
         options={{
-          title: 'Unlock Full Access',
+          headerShown: false,
         }}
       />
       <Stack.Screen

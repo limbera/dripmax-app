@@ -33,8 +33,8 @@ export default function PrePaywallFlowScreen() {
     <View style={styles.container}>
       <Stack.Screen 
         options={{ 
-          title: 'Preparing Offers...', 
-          headerShown: false, 
+          // title: 'Preparing Offers...', // Title no longer needed as header is hidden by navigator
+          headerShown: false, // This reinforces, but parent navigator now controls it
         }} 
       />
       <ScanningAnimationComponent

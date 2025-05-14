@@ -646,11 +646,12 @@ export default function CameraScreen() {
     // Now use the ScanningAnimationComponent
     return (
       <ScanningAnimationComponent
-        capturedImageUri={capturedImage} // This is already guaranteed to be non-null if isAnalyzing is true after capture
-        initialScanMessage={SCANNING_MESSAGES[0]} // Or pass a specific initial message
+        capturedImageUri={capturedImage} 
+        initialScanMessage={SCANNING_MESSAGES[0]} 
         scanningMessagesArray={SCANNING_MESSAGES}
         screenHeight={SCREEN_HEIGHT}
-        isActive={isAnalyzing} // This controls animations within the component
+        isActive={isAnalyzing} 
+        containerStyle={styles.container}
       />
     );
   }

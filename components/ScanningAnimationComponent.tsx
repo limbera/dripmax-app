@@ -168,11 +168,10 @@ const ScanningAnimationComponent: React.FC<ScanningAnimationProps> = ({
             </Text>
           </View>
         </View>
-        {mode === 'full' && (
-          <Text style={styles.logoTextBottom}>
-            dripmax
-          </Text>
-        )}
+        {/* Logo: Render always, regardless of mode */}
+        <Text style={styles.logoTextBottom}>
+          dripmax
+        </Text>
       </View>
     </View>
   );
