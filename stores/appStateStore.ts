@@ -198,14 +198,17 @@ export const useAppStateStore = create<AppStateStore>()(
         case AppState.UNAUTHENTICATED:
           return '/(auth)/login';
         case AppState.AUTHENTICATED_NO_SUB:
-          return '/(protected)';
+          // Updated route for non-subscribed authenticated users
+          return '/(protected)/initial-capture'; 
         case AppState.AUTHENTICATED_WITH_SUB:
-          return '/(protected)';
+          // Standard route for subscribed authenticated users
+          return '/(protected)/(tabs)/drips'; 
         case AppState.ERROR:
           // Route to the new error screen
           return '/(auth)/error';
         default:
           // Should never happen in normal operation
+          authLogger.warn(`getTargetRoute called with unexpected state: ${currentState}`);
           return '/(auth)/login';
       }
     },

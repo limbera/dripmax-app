@@ -15,16 +15,14 @@ import {
   Easing
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useNavigation } from 'expo-router';
+import { CommonActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { logger } from '../../../utils/logger';
 import { useOutfitStore } from '../../../stores/outfitStore';
-import Svg, { Circle } from 'react-native-svg';
 import { supabase } from '../../../services/supabase';
 import * as FileSystem from 'expo-file-system';
 import * as base64 from 'base64-js';
-import { nanoid } from 'nanoid/non-secure';
-import Constants from 'expo-constants';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FaceDetector from 'expo-face-detector';
 import * as ImagePicker from 'expo-image-picker';
@@ -32,20 +30,13 @@ import ActionButton from '../../../components/ActionButton';
 import { usePendingImageStore } from '../../../stores/pendingImageStore';
 import { trackEvent, trackOutfitWorkflow, trackOutfitActions } from '@/utils/analytics';
 import useScreenTracking from '../../../hooks/useScreenTracking';
+import CameraControlsComponent from '../../../components/CameraControlsComponent';
+import CameraCaptureViewComponent from '../../../components/CameraCaptureViewComponent';
+import ImagePreviewComponent from '../../../components/ImagePreviewComponent';
+import ScanningAnimationComponent from '../../../components/ScanningAnimationComponent';
 
-// Fashion fun facts to display during scanning
-const FASHION_FACTS = [
-  "The average person spends 6 months of their life choosing what to wear.",
-  "The color 'mauve' was the first synthetic dye ever created.",
-  "The concept of 'fashion shows' dates back to the 1800s.",
-  "In medieval Europe, only royalty could wear purple clothing.",
-  "Blue jeans were invented in 1873 by Levi Strauss.",
-  "The little black dress concept was created by Coco Chanel in 1926.",
-  "The term 'T-shirt' dates back to the 1920s, describing its T shape.",
-  "The necktie originated in 17th century Croatia.",
-  "High heels were originally created for men to appear taller.",
-  "The term 'fashionista' first appeared in print in 1993."
-];
+// FASHION_FACTS is no longer used in CameraScreen if setFashionFact was removed and it was its only consumer
+// const FASHION_FACTS = [ ... ]; 
 
 // Fun fashion scanning messages with emojis
 const SCANNING_MESSAGES = [
@@ -65,7 +56,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 // Create an animated version of the SVG Circle
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+// const AnimatedCircle = Animated.createAnimatedComponent(Circle); // Commented out as Circle is not defined/imported and AnimatedCircle seems unused in current JSX
 
 const cameraLogger = {
   info: (message: string, data?: any) => logger.info(`[Camera] ${message}`, data),
@@ -85,16 +76,10 @@ export default function CameraScreen() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [outfitId, setOutfitId] = useState<string | null>(null);
-  const [fashionFact, setFashionFact] = useState(FASHION_FACTS[0]);
-  const [scanMessage, setScanMessage] = useState(SCANNING_MESSAGES[0]);
-  
-  const cameraRef = useRef(null);
+  const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
+  const navigation = useNavigation();
   const { addOutfit, getOutfitWithFeedback } = useOutfitStore();
-  const progressAnimation = useRef(new Animated.Value(0)).current;
-  const scanLinePosition = useRef(new Animated.Value(0)).current;
-  const rotateValue = useRef(new Animated.Value(0)).current;
   const { pendingImageUri, clearPendingImage } = usePendingImageStore();
 
   // Automatically request permission when component mounts
@@ -185,51 +170,35 @@ export default function CameraScreen() {
 
   const takePicture = async () => {
     if (!cameraRef.current) return;
-    
+    setIsCapturing(true);
     try {
-      cameraLogger.info('Taking picture...');
-      setIsCapturing(true);
+      // @ts-ignore - Original code had this for takePictureAsync, may still be needed depending on exact CameraView typing for refs
+      const photo = await cameraRef.current.takePictureAsync({ exif: false });
       
-      // Track event with standardized naming
-      trackOutfitWorkflow.photoTaken({
-        facing: cameraFacing,
-        flash: flashMode
-      });
-      
-      // @ts-ignore - Needed because of typing issues with the camera ref
-      const photo = await cameraRef.current.takePictureAsync({
-        exif: false,
-      });
-      
-      cameraLogger.info('Photo captured', { 
-        hasUri: !!photo?.uri,
-        width: photo?.width,
-        height: photo?.height,
-        uri: photo?.uri?.substring(0, 30) + '...'
-      });
-      
-      // Directly set the captured image without any manipulation
-      if (photo.uri) {
+      // Add a check for photo being defined before accessing its properties
+      if (photo && photo.uri) {
+        cameraLogger.info('Photo captured', { 
+          hasUri: !!photo.uri,
+          width: photo.width,
+          height: photo.height,
+          uri: photo.uri.substring(0, 30) + '...'
+        });
         setCapturedImage(photo.uri);
-        // Track preview shown
         trackOutfitWorkflow.photoPreview({
           width: photo.width,
           height: photo.height
         });
         cameraLogger.info('Photo set to state', { uri: photo.uri.substring(0, 30) + '...' });
       } else {
-        throw new Error('Photo URI is missing');
+        throw new Error('Photo URI is missing or photo object is undefined');
       }
-    } catch (error) {
-      cameraLogger.error('Failed to take picture', { 
-        error: error instanceof Error ? error.message : String(error)
-      });
-      // Track failure
+    } catch (e: any) {
+      cameraLogger.error('Failed to take picture', { error: e.message || String(e) });
+      Alert.alert('Error', 'Failed to take picture. Please try again.');
       trackEvent('Error', {
         error_type: 'Outfit Photo Capture Failed',
-        error_message: error instanceof Error ? error.message : String(error)
+        error_message: e.message || String(e)
       });
-      Alert.alert('Error', 'Failed to take picture. Please try again.');
     } finally {
       setIsCapturing(false);
     }
@@ -296,15 +265,11 @@ export default function CameraScreen() {
   const startAnalysis = async () => {
     setIsAnalyzing(true);
     
-    // Set random fashion fact
-    setFashionFact(FASHION_FACTS[Math.floor(Math.random() * FASHION_FACTS.length)]);
-    
     // Record start time for analytics
     const startTime = Date.now();
     
     // Start progress animation
     setProgress(0);
-    progressAnimation.setValue(0);
     
     // Set up progress tracking with more fine-grained updates
     const updateProgress = (value: number, message: string) => {
@@ -338,7 +303,6 @@ export default function CameraScreen() {
         throw new Error('Failed to create outfit record');
       }
       
-      setOutfitId(newOutfitId);
       updateProgress(50, 'Outfit record created');
       
       // Phase 4: Poll for feedback with incremental progress (50-95%)
@@ -566,68 +530,23 @@ export default function CameraScreen() {
 
   const navigateToOutfitDetail = (id: string) => {
     setIsAnalyzing(false);
-    
-    // Replace the current screen in the navigation history
-    // so that back button from detail goes to home, not camera
-    router.replace({
-      pathname: "/outfit/[id]",
-      params: { id, fromCamera: "true" }
-    });
-    
-    cameraLogger.info('Replacing current screen with outfit detail', { outfitId: id });
-  };
+    cameraLogger.info('Navigating to outfit detail, ensuring back goes to Drips/Home', { outfitId: id });
 
-  const startProgressAnimation = () => {
-    // This function is no longer used for automatic progress
-    // as we're now directly setting progress values based on actual progress
-    // But we'll keep it for fallback or testing purposes
-    
-    // Reset progress
-    setProgress(0);
-    progressAnimation.setValue(0);
-    
-    // Animate from 0 to 90% over a longer period (used only as fallback)
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return 90;
-        }
-        return prev + 1;
-      });
-    }, 300); // Slower animation as fallback
-    
-    // Return cleanup function
-    return () => clearInterval(interval);
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 1, 
+        routes: [
+          // Option 1: Target the (tabs) navigator group directly.
+          // This assumes 'drips' is the initial route of your (tabs) navigator.
+          { name: '(tabs)' as never }, 
+          { 
+            name: 'outfit/[id]' as never, 
+            params: { id, fromCamera: "true" },
+          }
+        ],
+      })
+    );
   };
-  
-  // Update subtext based on progress
-  const getAnalysisText = () => {
-    if (progress < 10) {
-      return "Preparing outfit photo...";
-    } else if (progress < 35) {
-      return "Uploading to  AI...";
-    } else if (progress < 50) {
-      return "Creating outfit record...";
-    } else if (progress < 75) {
-      return "Analyzing style elements...";
-    } else if (progress < 90) {
-      return "Generating fashion feedback...";
-    } else if (progress < 100) {
-      return "Finalizing analysis...";
-    } else {
-      return "Ready!";
-    }
-  };
-  
-  useEffect(() => {
-    // Animate the progress value
-    Animated.timing(progressAnimation, {
-      toValue: progress,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  }, [progress]);
 
   const resetCamera = () => {
     // Clear captured image to return to camera mode
@@ -640,82 +559,12 @@ export default function CameraScreen() {
     cameraLogger.info('Camera reset, returning to capture mode');
   };
 
-  const goBackToHome = () => {
-    router.back();
-    cameraLogger.info('Going back to previous screen');
-  };
+  const goBackToHome = () => router.back();
 
-  // Add this function to create the scanning line animation
-  const animateScanLine = () => {
-    // Reset to start position if needed
-    scanLinePosition.setValue(0);
-    
-    // Create a sequence of animations (down and then up)
-    Animated.loop(
-      Animated.sequence([
-        // Move down
-        Animated.timing(scanLinePosition, {
-          toValue: 1,
-          duration: 2000, // 2 seconds to scan down
-          useNativeDriver: true,
-          easing: Easing.linear
-        }),
-        // Move up
-        Animated.timing(scanLinePosition, {
-          toValue: 0,
-          duration: 2000, // 2 seconds to scan up
-          useNativeDriver: true,
-          easing: Easing.linear
-        })
-      ])
-    ).start();
-  };
-  
-  // Start the scan animation when analyzing starts
-  useEffect(() => {
-    if (isAnalyzing) {
-      // Start scan line animation
-      animateScanLine();
-      
-      // Set initial random messages
-      setScanMessage(SCANNING_MESSAGES[Math.floor(Math.random() * SCANNING_MESSAGES.length)]);
-      
-      // Start emoji spinning animation - back and forth like in AppLoadingScreen
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(rotateValue, {
-            toValue: 1,
-            duration: 1200,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(rotateValue, {
-            toValue: 0,
-            duration: 1200,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          })
-        ])
-      ).start();
-      
-      // Set up intervals to cycle through messages
-      const scanMessageInterval = setInterval(() => {
-        setScanMessage(SCANNING_MESSAGES[Math.floor(Math.random() * SCANNING_MESSAGES.length)]);
-      }, 3000);
-      
-      return () => {
-        clearInterval(scanMessageInterval);
-        rotateValue.stopAnimation();
-      };
-    }
-  }, [isAnalyzing]);
-
-  // Function to pick image from gallery
+  // Re-adding the pickImage function
   const pickImage = async () => {
     try {
       cameraLogger.info('Attempting to pick image from gallery');
-      
-      // Request permission if needed
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         cameraLogger.error('Media library permission denied');
@@ -725,28 +574,23 @@ export default function CameraScreen() {
         );
         return;
       }
-      
-      // Launch image picker with simple configuration that worked in onboarding/capture
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 1,
       });
-      
       if (!result.canceled && result.assets && result.assets.length > 0) {
         cameraLogger.info('Image selected from gallery', {
           uri: result.assets[0].uri.substring(0, 20) + '...',
           width: result.assets[0].width,
           height: result.assets[0].height,
         });
-        
-        // Set the captured image state with the picked image
         setCapturedImage(result.assets[0].uri);
       } else {
         cameraLogger.info('Image picker canceled');
       }
-    } catch (error) {
+    } catch (error: any) {
       cameraLogger.error('Error picking image from gallery', { 
-        error: error instanceof Error ? error.message : String(error)
+        error: error.message || String(error)
       });
       Alert.alert('Error', 'Failed to select image from gallery.');
     }
@@ -773,619 +617,59 @@ export default function CameraScreen() {
     );
   }
 
-  // CAMERA PREVIEW VIEW
+  // CAMERA PREVIEW VIEW (when no image is captured yet)
   if (!capturedImage) {
     return (
       <View style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
         <StatusBar hidden />
-        <CameraView
-          style={styles.camera}
+        <CameraCaptureViewComponent
+          cameraRef={cameraRef}
           facing={cameraFacing}
-          flash={flashMode}
-          // @ts-ignore
-          ref={cameraRef}
-        >
-          {/* Simplified overlay with just the silhouette image */}
-          <View style={styles.centerSilhouette}>
-            {/* Silhouette image centered */}
-            <Image 
-              source={require('../../../assets/images/silhouette-overlay.png')} 
-              style={styles.silhouetteImage}
-              resizeMode="contain"
-            />
-            
-            {/* Guide text placed at bottom */}
-            <Text style={styles.guideText}>Strike a pose!</Text>
-          </View>
-          
-          <View style={styles.cameraControls}>
-            {/* Top row controls */}
-            <View style={styles.topControls}>
-              <TouchableOpacity 
-                style={styles.circleButton} 
-                onPress={toggleFlash}
-              >
-                <Ionicons 
-                  name={flashMode === 'on' ? 'flash' : 'flash-off'} 
-                  size={24} 
-                  color="white" 
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.circleButton} 
-                onPress={goBackToHome}
-              >
-                <Ionicons name="close" size={28} color="white" />
-              </TouchableOpacity>
-            </View>
-            
-            {/* Bottom row controls */}
-            <View style={styles.bottomControls}>
-              <TouchableOpacity 
-                style={styles.circleButton}
-                onPress={pickImage}
-              >
-                <Ionicons name="images-outline" size={24} color="white" />
-              </TouchableOpacity>
-
-              <View style={styles.captureContainer}>
-                <TouchableOpacity 
-                  style={[
-                    styles.captureButton,
-                    isCapturing && styles.captureButtonDisabled
-                  ]}
-                  onPress={takePicture}
-                  disabled={isCapturing}
-                >
-                  <View style={[
-                    styles.captureButtonInner,
-                    isCapturing && styles.captureButtonInnerDisabled
-                  ]} />
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity 
-                style={styles.circleButton}
-                onPress={toggleCameraFacing}
-              >
-                <Ionicons name="sync-outline" size={24} color="white" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </CameraView>
+          flashMode={flashMode}
+          style={styles.camera} 
+        />
+        <CameraControlsComponent
+          onClose={goBackToHome}
+          onFlipCamera={toggleCameraFacing}
+          onToggleFlash={toggleFlash}
+          onPickImage={pickImage}
+          onCapture={takePicture}
+          flashMode={flashMode}
+          isCapturing={isCapturing}
+        />
       </View>
     );
   }
   
-  // ANALYSIS LOADING VIEW
   if (isAnalyzing) {
+    // Now use the ScanningAnimationComponent
     return (
-      <View style={styles.container}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <StatusBar hidden />
-        
-        {/* Keep the image preview visible in the background */}
-        <View style={styles.previewContainer}>
-          {capturedImage ? (
-            <Image 
-              source={{ uri: capturedImage }}
-              style={styles.previewImage}
-              resizeMode="contain"
-            />
-          ) : (
-            <View style={styles.placeholderContainer}>
-              <Text style={styles.placeholderText}>Image not available</Text>
-            </View>
-          )}
-          
-          {/* Scanning line animation */}
-          <Animated.View 
-            style={[
-              styles.scanLine,
-              {
-                transform: [{
-                  translateY: scanLinePosition.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, Dimensions.get('window').height]
-                  })
-                }]
-              }
-            ]}
-          />
-          
-          {/* Overlay with app-loading style progress indicator */}
-          <View style={styles.loadingOverlay}>
-            <View style={styles.loadingContent}>
-              {/* Animated emoji and scanning message */}
-              <View style={styles.messageContainer}>
-                <Animated.Text 
-                  style={[
-                    styles.emojiIcon, 
-                    { 
-                      transform: [{ 
-                        rotate: rotateValue.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: ['0deg', '360deg']
-                        })
-                      }] 
-                    }
-                  ]}
-                >
-                  {scanMessage.split(' ')[0]}
-                </Animated.Text>
-                <Text style={styles.scanningMessage}>
-                  {scanMessage.split(' ').slice(1).join(' ')}
-                </Text>
-              </View>
-            </View>
-            
-            {/* Logo at the bottom */}
-            <Text style={styles.logoTextBottom}>
-              dripmax
-            </Text>
-          </View>
-        </View>
-      </View>
+      <ScanningAnimationComponent
+        capturedImageUri={capturedImage} // This is already guaranteed to be non-null if isAnalyzing is true after capture
+        initialScanMessage={SCANNING_MESSAGES[0]} // Or pass a specific initial message
+        scanningMessagesArray={SCANNING_MESSAGES}
+        screenHeight={SCREEN_HEIGHT}
+        isActive={isAnalyzing} // This controls animations within the component
+      />
     );
   }
   
-  // IMAGE PREVIEW VIEW
+  // IMAGE PREVIEW VIEW (when an image is captured, and we are NOT analyzing yet)
+  // This is where ImagePreviewComponent is used.
   return (
-    <View style={styles.container}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar hidden />
-      
-      {/* Original preview container */}
-      <View style={styles.previewContainer}>
-        {capturedImage ? (
-          <Image 
-            source={{ uri: capturedImage }}
-            style={styles.previewImage}
-            resizeMode="contain"
-            onLoadStart={() => cameraLogger.info('Preview image load started')}
-            onLoad={() => cameraLogger.info('Preview image loaded successfully')}
-            onError={(e) => cameraLogger.error('Preview image load failed', { 
-              error: e.nativeEvent.error,
-              uri: capturedImage.substring(0, 20) + '...'
-            })}
-          />
-        ) : (
-          <View style={styles.placeholderContainer}>
-            <Text style={styles.placeholderText}>Image not available</Text>
-          </View>
-        )}
-      </View>
-      
-      {/* Transparent top panel for buttons positioned to match camera view */}
-      <View 
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          paddingTop: Platform.OS === 'ios' ? 50 : 20,
-        }}
-        pointerEvents="box-none"
-      >
-        <View style={[styles.topControls, { backgroundColor: 'transparent' }]}>
-          {/* Empty space with same dimensions as flash button */}
-          <View style={{ width: 45, opacity: 0 }} />
-          
-          <TouchableOpacity 
-            style={styles.circleButton} 
-            onPress={resetCamera}
-          >
-            <Ionicons name="close" size={28} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
-      
-      <ActionButton
-        label="NEXT"
-        onPress={analyzeDrip}
-        animation="chevron-sequence"
-        icon="chevron"
-        style={styles.analyzeButton}
-      />
-    </View>
+    <ImagePreviewComponent
+      imageUri={capturedImage as string} 
+      onAccept={analyzeDrip}      
+      onRetake={resetCamera}      
+      containerStyle={styles.container} 
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'black',
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  text: {
-    color: 'white',
-    fontSize: 16,
-    marginTop: 10,
-    textAlign: 'center',
-  },
-  button: {
-    marginTop: 20,
-    backgroundColor: '#22C55E',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-  },
-  secondaryButton: {
-    backgroundColor: '#444',
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  camera: {
-    flex: 1,
-  },
-  cameraControls: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    paddingVertical: Platform.OS === 'ios' ? 50 : 20,
-  },
-  topControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    width: '100%',
-  },
-  bottomControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    width: '100%',
-    paddingBottom: 25,
-  },
-  circleButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  captureContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  captureButton: {
-    width: 75,
-    height: 75,
-    borderRadius: 100,
-    borderWidth: 4,
-    borderColor: 'white',
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  captureButtonInner: {
-    width: 62,
-    height: 62,
-    borderRadius: 100,
-    backgroundColor: 'white',
-  },
-  captureButtonDisabled: {
-    borderColor: 'gray',
-  },
-  captureButtonInnerDisabled: {
-    backgroundColor: 'gray',
-  },
-  previewContainer: {
-    flex: 1,
-    backgroundColor: 'black',
-  },
-  previewImage: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-  },
-  overlayControls: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'transparent',
-    padding: 0,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-  },
-  iconButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: 20,
-  },
-  analyzeButton: {
-    position: 'absolute',
-    bottom: 100,
-    left: 20,
-    right: 20,
-    backgroundColor: '#00FF77',
-    padding: 20,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 100,
-    flexDirection: 'row',
-  },
-  analyzeButtonAnalyzing: {
-    backgroundColor: 'black',
-    borderWidth: 1,
-    borderColor: '#00FF77',
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 15,
-  },
-  analyzeText: {
-    color: 'black',
-    fontWeight: 'bold',
-    fontSize: 20,
-    textAlign: 'center',
-    flex: 1,
-  },
-  analyzeTextAnalyzing: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 20,
-    textAlign: 'center',
-    flex: 1,
-  },
-  iconContainer: {
-    position: 'absolute',
-    right: 20,
-  },
-  centerContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'black',
-  },
-  analyzeContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  progressContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 30,
-  },
-  progressText: {
-    position: 'absolute',
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  subText: {
-    fontSize: 16,
-    color: '#aaaaaa',
-    textAlign: 'center',
-  },
-  placeholderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    color: '#aaaaaa',
-    fontSize: 16,
-  },
-  overlayForProgress: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scanLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: '#00FF77',
-    shadowColor: '#00FF77',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 8,
-    zIndex: 10,
-  },
-  buttonIconContainer: {
-    marginRight: 12,
-    width: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  frameOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    flexDirection: 'column',
-  },
-  overlaySection: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  middleSection: {
-    width: '100%',
-    height: SCREEN_WIDTH * 1.4,
-    flexDirection: 'row',
-  },
-  silhouetteContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 0,
-  },
-  silhouetteImage: {
-    width: SCREEN_WIDTH * 1.4,
-    height: SCREEN_HEIGHT * 1.35,
-    opacity: 0.5,
-    transform: [{ translateY: -50 }],
-  },
-  guideText: {
-    color: 'white',
-    fontFamily: 'RobotoMono-Regular',
-    fontSize: 14,
-    fontWeight: '500',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    overflow: 'hidden',
-    position: 'absolute',
-    bottom: 35,
-    zIndex: 10,
-  },
-  poseText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#00FF77',
-  },
-  centerSilhouette: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  factContainer: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 30,
-    left: 20,
-    right: 20,
-    padding: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: '#00FF77',
-    zIndex: 100,
-  },
-  factTitle: {
-    color: '#00FF77',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    fontFamily: 'SpaceMono',
-    opacity: 0.9,
-  },
-  factText: {
-    color: 'white',
-    fontSize: 13,
-    fontFamily: 'SpaceMono',
-    lineHeight: 18,
-    opacity: 0.8,
-  },
-  statusOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressCircleContainer: {
-    width: 120,
-    height: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  progressPercentage: {
-    position: 'absolute',
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  statusText: {
-    color: '#00FF77',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 20,
-    fontFamily: 'SpaceMono',
-    textAlign: 'center',
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
-    marginBottom: 30,
-    fontFamily: 'SpaceMono',
-  },
-  logoGreen: {
-    color: '#00FF77',
-  },
-  logoWhite: {
-    color: 'white',
-  },
-  scanningMessage: {
-    color: 'white',
-    fontSize: 20,
-    textAlign: 'center',
-    marginBottom: 25,
-    fontFamily: 'SpaceMono',
-  },
-  messageContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emojiIcon: {
-    fontSize: 48,
-    marginBottom: 10,
-  },
-  logoTextBottom: {
-    color: '#00FF77',
-    fontSize: 36,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
-    fontFamily: 'SpaceMono',
-    position: 'absolute',
-    bottom: 50,
-    alignSelf: 'center',
-  },
+  container: { flex: 1, backgroundColor: 'black' },
+  centered: { justifyContent: 'center', alignItems: 'center', padding: 20 },
+  text: { color: 'white', fontSize: 16, marginTop: 10, textAlign: 'center' },
+  camera: { flex: 1 },
 }); 

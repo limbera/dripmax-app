@@ -15,23 +15,23 @@ export default function ProtectedLayout() {
   const router = useRouter();
 
   // Log component mount and unmount
-  useEffect(() => {
-    navigationLogger.info('Protected layout mounted', {
-      isLoading,
-      initialized,
-      isAuthenticated,
-      hasUser: !!user
-    });
+  // useEffect(() => {
+  //   navigationLogger.info('Protected layout mounted', {
+  //     isLoading,
+  //     initialized,
+  //     isAuthenticated,
+  //     hasUser: !!user
+  //   });
 
-    // Redirect to tabs when accessing the protected layout directly
-    if (!isLoading && initialized && isAuthenticated) {
-      router.replace('/(protected)/(tabs)/drips');
-    }
+  //   // THIS ENTIRE if BLOCK WAS THE ISSUE AND IS REMOVED
+  //   // if (!isLoading && initialized && isAuthenticated) {
+  //   //   router.replace('/(protected)/(tabs)/drips');
+  //   // }
 
-    return () => {
-      navigationLogger.debug('Protected layout unmounted');
-    };
-  }, [isLoading, initialized, isAuthenticated]);
+  //   return () => {
+  //     navigationLogger.debug('Protected layout unmounted');
+  //   };
+  // }, [isLoading, initialized, isAuthenticated, router]); // Ensure router was in deps if we kept it
 
   // Log when auth state changes
   useEffect(() => {
@@ -78,6 +78,18 @@ export default function ProtectedLayout() {
         },
       }}
     >
+      <Stack.Screen
+        name="initial-capture"
+        options={{
+          title: 'Capture Outfit',
+        }}
+      />
+      <Stack.Screen
+        name="pre-paywall-flow"
+        options={{
+          title: 'Unlock Full Access',
+        }}
+      />
       <Stack.Screen
         name="index"
         options={{ headerShown: false }}
