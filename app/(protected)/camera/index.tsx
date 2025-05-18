@@ -627,7 +627,8 @@ export default function CameraScreen() {
           cameraRef={cameraRef}
           facing={cameraFacing}
           flashMode={flashMode}
-          style={styles.camera} 
+          style={styles.camera}
+          showSilhouette={false}
         />
         <CameraControlsComponent
           onClose={goBackToHome}

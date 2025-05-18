@@ -145,6 +145,7 @@ export default function InitialCaptureScreen() {
         facing={cameraFacing}
         flashMode={flashMode}
         style={styles.cameraViewStyle} // flex: 1 for the camera view itself
+        showSilhouette={false}
         // Default silhouette and guide text will be used
       />
       <CameraControlsComponent

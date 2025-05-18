@@ -20,6 +20,7 @@ interface CameraCaptureViewProps {
   style?: ViewStyle;
   showSilhouette?: boolean;
   guideText?: string;
+  showGuideText?: boolean;
   // silhouetteImageSource?: ImageSourcePropType; // Optional if we make it a prop
 }
 
@@ -28,8 +29,9 @@ export default function CameraCaptureViewComponent({
   facing,
   flashMode,
   style,
-  showSilhouette = true,
+  showSilhouette = false,
   guideText = "📸 Take a photo of your outfit and we'll rate it out of 10.",
+  showGuideText = true,
 }: CameraCaptureViewProps) {
   return (
     <CameraView
@@ -39,16 +41,18 @@ export default function CameraCaptureViewComponent({
       ref={cameraRef}
       // Consider adding other useful CameraView props if needed: barCodeScannerSettings, onBarcodeScanned, etc.
     >
-      {showSilhouette && (
-        <View style={styles.centerSilhouette}>
+      <View style={styles.overlayContainer}>
+        {showSilhouette && (
           <Image 
             source={require('../assets/images/silhouette-overlay.png')} // Corrected path
             style={styles.silhouetteImage}
             resizeMode="contain"
           />
+        )}
+        {showGuideText && (
           <Text style={styles.guideText}>{guideText}</Text>
-        </View>
-      )}
+        )}
+      </View>
     </CameraView>
   );
 }
@@ -57,7 +61,7 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1, // Default to filling available space
   },
-  centerSilhouette: {
+  overlayContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
