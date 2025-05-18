@@ -6,6 +6,8 @@ import { authLogger } from '../utils/logger';
 import { useAuthStore } from '../stores/authStore';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { useSubscription } from '../hooks/useSubscription';
+import { notificationService } from '../services/notifications';
+import * as Notifications from 'expo-notifications';
 
 // Navigation debounce timeout in ms
 const NAVIGATION_DEBOUNCE_MS = 300;
@@ -49,6 +51,7 @@ export default function AppNavigator() {
   const navigationInProgressRef = useRef<boolean>(false);
   const [isCheckingSubForNav, setIsCheckingSubForNav] = useState(false);
   const finalStateDeterminationComplete = useRef(false);
+  const initialNotificationPromptAttemptedRef = useRef(false);
   
   // Helper function to check if navigation is allowed
   const canNavigate = (route: string): boolean => {
@@ -111,6 +114,27 @@ export default function AppNavigator() {
             // User is not authenticated
             finalState = AppState.UNAUTHENTICATED;
             authLogger.info('Final state determined: UNAUTHENTICATED');
+
+            // ---- START NOTIFICATION PROMPT LOGIC ----
+            if (!initialNotificationPromptAttemptedRef.current && notificationsReady) {
+              authLogger.info('AppNavigator: User is unauthenticated, attempting initial notification prompt.');
+              try {
+                const currentPermissions = await Notifications.getPermissionsAsync();
+                authLogger.debug('AppNavigator: Current notification permissions:', currentPermissions);
+                if (currentPermissions.status === Notifications.PermissionStatus.UNDETERMINED) {
+                  authLogger.info('AppNavigator: Notification permissions undetermined, calling promptAndSubscribeUser.');
+                  await notificationService.promptAndSubscribeUser();
+                } else {
+                  authLogger.info('AppNavigator: Notification permissions already determined, skipping prompt.');
+                }
+              } catch (e) {
+                authLogger.error('AppNavigator: Error during initial notification prompt attempt', e);
+              } finally {
+                initialNotificationPromptAttemptedRef.current = true;
+              }
+            }
+            // ---- END NOTIFICATION PROMPT LOGIC ----
+            
             if (currentState !== finalState) setAppState(finalState);
             finalStateDeterminationComplete.current = true; // <-- Set flag
 

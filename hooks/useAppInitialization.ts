@@ -171,7 +171,7 @@ export function useAppInitialization() {
         setAppState(AppState.INITIALIZING_NOTIFICATIONS);
         
         try {
-          await notificationService.initialize();
+          await notificationService.initializeBase();
           authLogger.info(`Notifications initialized (${Date.now() - debugTimestampRef.current}ms)`);
           setInitStatus(prev => ({ ...prev, notificationsDone: true }));
           setNotificationsReady(true);

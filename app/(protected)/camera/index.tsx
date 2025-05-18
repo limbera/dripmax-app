@@ -205,14 +205,17 @@ export default function CameraScreen() {
   };
 
   const analyzeDrip = async () => {
+    if (isAnalyzing) {
+      cameraLogger.info('Analysis already in progress, preventing duplicate call to analyzeDrip.');
+      return;
+    }
     if (!capturedImage) {
       Alert.alert('Error', 'No image captured. Please take a photo first.');
       return;
     }
     
     try {
-      // Track event with standardized naming
-      trackOutfitWorkflow.analysisStarted();
+      // trackOutfitWorkflow.analysisStarted(); // Moved to startAnalysis
       
       // Check for multiple people before starting analysis
       if (!capturedImage) {
@@ -263,6 +266,9 @@ export default function CameraScreen() {
   };
 
   const startAnalysis = async () => {
+    // Moved from analyzeDrip as this is when analysis truly begins post-checks
+    trackOutfitWorkflow.analysisStarted(); 
+
     setIsAnalyzing(true);
     
     // Record start time for analytics

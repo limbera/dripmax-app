@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,14 @@ export default function ImagePreviewComponent({
   onRetake,
   containerStyle,
 }: ImagePreviewProps) {
+  const [isAccepted, setIsAccepted] = useState(false);
+
+  const handleAccept = () => {
+    if (isAccepted) return; // Prevent multiple calls
+    setIsAccepted(true);
+    onAccept();
+  };
+
   return (
     <View style={[styles.previewContainer, containerStyle]}>
       {imageUri ? (
@@ -73,7 +81,8 @@ export default function ImagePreviewComponent({
       
       <ActionButton
         label="NEXT"
-        onPress={onAccept}
+        onPress={handleAccept}
+        disabled={isAccepted}
         animation="chevron-sequence"
         icon="chevron"
         style={styles.analyzeButton} // This style is from CameraScreen
