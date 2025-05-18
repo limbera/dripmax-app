@@ -15,6 +15,7 @@ import { useOutfitStore } from './outfitStore';
 import { useSubscriptionStore } from './subscriptionStore';
 import { trackEvent, ANALYTICS_EVENTS, resetUser as resetAnalyticsUser } from '../utils/analytics';
 import * as SecureStore from 'expo-secure-store';
+import { setUserContext, clearUserContext } from '../services/sentry';
 
 // Define the WebBrowser result type to include the URL property
 interface WebBrowserAuthSessionResult {
@@ -124,9 +125,10 @@ export const useAuthStore = create<AuthState>()(
         
         // Link user with OneSignal on sign-in
         if (!wasSignedIn && isSignedIn && session?.user) {
-          authLogger.debug('User signed in, linking with OneSignal', {
+          authLogger.debug('User signed in, linking with OneSignal and setting Sentry context', {
             userId: session.user.id
           });
+          setUserContext(session.user.id, session.user.email);
           linkUserWithNotifications(session.user.id).catch(error => {
             authLogger.error('Error linking user with notifications', error);
           });
@@ -134,7 +136,8 @@ export const useAuthStore = create<AuthState>()(
         
         // Unlink user from OneSignal on sign-out
         if (wasSignedIn && !isSignedIn) {
-          authLogger.debug('User signed out, unlinking from OneSignal');
+          authLogger.debug('User signed out, unlinking from OneSignal and clearing Sentry context');
+          clearUserContext();
           unlinkUserFromNotifications().catch(error => {
             authLogger.error('Error unlinking user from notifications', error);
           });
