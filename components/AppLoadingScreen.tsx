@@ -129,12 +129,9 @@ export default function AppLoadingScreen() {
           { opacity: opacityValue }
         ]}
       >
-        {/* App Logo */}
-        <Text style={styles.title}>
-          <Text style={styles.titleGreen}>drip</Text>
-          <Text style={styles.titleWhite}>max</Text>
-        </Text>
-        
+        {/* App Title at the top */}
+        <Text style={styles.topTitle}>dripmax</Text>
+
         {/* Animated Fashion Icon */}
         <Animated.View style={[styles.iconContainer, { transform: [{ rotate: spin }] }]}>
           <Text style={styles.emoji}>{getLoadingEmoji()}</Text>
@@ -153,7 +150,6 @@ export default function AppLoadingScreen() {
               ]} 
             />
           </View>
-          <Text style={styles.progressText}>{loadingProgress}%</Text>
         </View>
         
         {/* Error Display */}
@@ -203,10 +199,12 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     marginBottom: 20,
+    marginTop: 20,
     padding: 10,
   },
   emoji: {
     fontSize: 48,
+    fontFamily: 'SpaceMono',
   },
   loadingMessage: {
     fontSize: 20,
@@ -222,20 +220,15 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     width: '100%',
-    height: 10,
+    height: 16,
     backgroundColor: '#222',
-    borderRadius: 5,
+    borderRadius: 8,
     overflow: 'hidden',
     marginBottom: 5,
   },
   progressBar: {
     height: '100%',
     backgroundColor: '#00FF77',
-  },
-  progressText: {
-    color: '#00FF77',
-    fontSize: 14,
-    fontFamily: 'SpaceMono',
   },
   errorContainer: {
     backgroundColor: 'rgba(255, 59, 48, 0.2)',
@@ -257,5 +250,14 @@ const styles = StyleSheet.create({
     width: 0,
     opacity: 0,
     position: 'absolute',
+  },
+  topTitle: {
+    fontFamily: 'SpaceMono',
+    fontSize: 40,
+    fontWeight: 'bold',
+    fontStyle: 'italic',
+    color: '#00FF77',
+    marginBottom: 30,
+    marginTop: 20,
   },
 }); 
