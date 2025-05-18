@@ -15,15 +15,15 @@ import { trackOutfitActions } from '@/utils/analytics';
 // Score labels based on rating
 const SCORE_LABELS = {
   1: 'Fashion Emergency',
-  2: 'Needs Work ASAP',
-  3: 'Back to Basics',
-  4: 'Almost There...',
-  5: 'Midway to Style',
-  6: 'The Effort Was...',
-  7: 'Getting Iconic',
+  2: 'Send Help',
+  3: 'Needs Work ASAP',
+  4: 'Borderline Beige',
+  5: 'Mid-Drip Alert',
+  6: 'Meh in Motion',
+  7: 'Good Not Great',
   8: 'Absolutely Slaying',
   9: 'Main Character',
-  10: 'God Tier No Notes'
+  10: 'God Tier—No Notes'
 } as const;
 
 // Function to get the appropriate score label
