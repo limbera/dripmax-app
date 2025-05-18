@@ -3,7 +3,7 @@ module.exports = {
     expo: {
       name: "Dripmax",
       slug: "dripmax-app",
-      version: "1.2.3",
+      version: "1.2.4",
       orientation: "portrait",
       icon: "./assets/images/icon.png",
       scheme: "dripmax",
