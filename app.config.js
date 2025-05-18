@@ -25,6 +25,7 @@ module.exports = {
               ]
             }
           ],
+          LSApplicationQueriesSchemes: ["mailto", "message", "facetime"],
           NSCameraUsageDescription: "Allow Dripmax to access your camera to capture and analyze your outfits.",
           NSPhotoLibraryUsageDescription: "Allow Dripmax to access your photos to save and share your outfit captures.",
           NSUserNotificationUsageDescription: "We'll send you updates about your outfits and new app features.",
@@ -52,6 +53,18 @@ module.exports = {
           "android.permission.WRITE_EXTERNAL_STORAGE",
           "android.permission.RECEIVE_BOOT_COMPLETED",
           "android.permission.VIBRATE"
+        ],
+        queries: [
+          {
+            "intent": [
+              {
+                "action": "android.intent.action.SENDTO",
+                "data": {
+                  "scheme": "mailto"
+                }
+              }
+            ]
+          }
         ]
       },
       
