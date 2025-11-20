@@ -35,6 +35,9 @@ module.exports = {
           NSPhotoLibraryAddUsageDescription: "Allow Dripmax to access your photo library to save photos of your outfits and wardrobe items.",
           NSFaceIDUsageDescription: "Allow Dripmax to use Face ID to protect your account.",
           UIBackgroundModes: ["remote-notification"],
+          "UISupportedInterfaceOrientations~ipad": [
+            "UIInterfaceOrientationPortrait"
+          ],
         },
         associatedDomains: ["applinks:dripmax.app"],
       },
