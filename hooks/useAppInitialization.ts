@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, useAppStateStore } from '../stores/appStateStore';
 import { useAuthStore } from '../stores/authStore';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
@@ -35,8 +35,7 @@ export function useAppInitialization() {
   // Subscription state
   const { 
     initialize: initializeSubscription, 
-    hasActiveSubscription,
-    isInitialized: subscriptionInitialized
+    hasActiveSubscription
   } = useSubscriptionStore();
   
   // Initialization status
@@ -49,6 +48,65 @@ export function useAppInitialization() {
   // For debugging
   const debugTimestampRef = useRef(Date.now());
   const initCompleted = useRef(false);
+  const subscriptionInitPromiseRef = useRef<Promise<void> | null>(null);
+  const notificationInitPromiseRef = useRef<Promise<void> | null>(null);
+
+  const startSubscriptionInitialization = useCallback(() => {
+    if (subscriptionInitPromiseRef.current) {
+      return subscriptionInitPromiseRef.current;
+    }
+
+    authLogger.info(`Starting subscription initialization in background (${Date.now() - debugTimestampRef.current}ms)`);
+    setAppState(AppState.CHECKING_SUBSCRIPTION);
+
+    subscriptionInitPromiseRef.current = (async () => {
+      try {
+        await initializeSubscription();
+        authLogger.info(`Subscription service initialized (${Date.now() - debugTimestampRef.current}ms)`);
+        setInitStatus(prev => ({ ...prev, subscriptionDone: true }));
+        setSubscriptionServiceReady(true);
+      } catch (error) {
+        authLogger.error('Subscription initialization error', error);
+      } finally {
+        markStateComplete(AppState.CHECKING_SUBSCRIPTION);
+      }
+    })();
+
+    return subscriptionInitPromiseRef.current;
+  }, [
+    initializeSubscription,
+    setAppState,
+    setSubscriptionServiceReady,
+    markStateComplete
+  ]);
+
+  const startNotificationInitialization = useCallback(() => {
+    if (notificationInitPromiseRef.current) {
+      return notificationInitPromiseRef.current;
+    }
+
+    authLogger.info(`Initializing notifications in background (${Date.now() - debugTimestampRef.current}ms)`);
+    setAppState(AppState.INITIALIZING_NOTIFICATIONS);
+
+    notificationInitPromiseRef.current = (async () => {
+      try {
+        await notificationService.initializeBase();
+        authLogger.info(`Notifications initialized (${Date.now() - debugTimestampRef.current}ms)`);
+        setInitStatus(prev => ({ ...prev, notificationsDone: true }));
+        setNotificationsReady(true);
+      } catch (error) {
+        authLogger.error('Notification initialization error', error);
+      } finally {
+        markStateComplete(AppState.INITIALIZING_NOTIFICATIONS);
+      }
+    })();
+
+    return notificationInitPromiseRef.current;
+  }, [
+    setAppState,
+    setNotificationsReady,
+    markStateComplete
+  ]);
   
   // Clear secure store if there are persistent errors (in both dev and prod)
   useEffect(() => {
@@ -142,44 +200,9 @@ export function useAppInitialization() {
         
         markStateComplete(AppState.CHECKING_AUTH);
         
-        // 4. Subscription initialization - only for authenticated users
-        authLogger.info(`Starting subscription check (${Date.now() - debugTimestampRef.current}ms)`);
-        setAppState(AppState.CHECKING_SUBSCRIPTION);
-        
-        try {
-          // Always initialize subscription service (needed for paywall)
-          await initializeSubscription();
-          authLogger.info(`Subscription service initialized (${Date.now() - debugTimestampRef.current}ms)`);
-          
-          // Wait for it to be ready
-          let waitCount = 0;
-          while (!subscriptionInitialized && waitCount < 20) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            waitCount++;
-          }
-          
-          setInitStatus(prev => ({ ...prev, subscriptionDone: true }));
-          setSubscriptionServiceReady(true);
-        } catch (error) {
-          authLogger.error('Subscription initialization error', error);
-        }
-        
-        markStateComplete(AppState.CHECKING_SUBSCRIPTION);
-        
-        // 5. Notifications initialization
-        authLogger.info(`Initializing notifications (${Date.now() - debugTimestampRef.current}ms)`);
-        setAppState(AppState.INITIALIZING_NOTIFICATIONS);
-        
-        try {
-          await notificationService.initializeBase();
-          authLogger.info(`Notifications initialized (${Date.now() - debugTimestampRef.current}ms)`);
-          setInitStatus(prev => ({ ...prev, notificationsDone: true }));
-          setNotificationsReady(true);
-        } catch (error) {
-          authLogger.error('Notification initialization error', error);
-        }
-        
-        markStateComplete(AppState.INITIALIZING_NOTIFICATIONS);
+        // 4. Kick off subscription + notification initialization without blocking UI
+        startSubscriptionInitialization();
+        startNotificationInitialization();
         
         // 8. Initialization complete
         initCompleted.current = true;
@@ -192,7 +215,7 @@ export function useAppInitialization() {
     };
     
     runInitialization();
-  }, []);
+  }, [startNotificationInitialization, startSubscriptionInitialization]);
   
   // Helper function to check if app is initialized
   const isInitialized = () => {

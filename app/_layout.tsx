@@ -10,6 +10,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { initSentry } from '../services/sentry';
 import AppNavigator from '../components/AppNavigator';
+import NotificationPromptController from '../components/NotificationPromptController';
 import { useAppInitialization } from '../hooks/useAppInitialization';
 import { authLogger } from '../utils/logger';
 import MixpanelProvider from '../components/MixpanelProvider';
@@ -110,6 +111,7 @@ export default function RootLayout() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <MixpanelProvider>
           {/* Use Slot for page rendering and AppNavigator for initialization and navigation */}
+          <NotificationPromptController />
           <Slot />
           <AppNavigator />
           <StatusBar style="auto" />
