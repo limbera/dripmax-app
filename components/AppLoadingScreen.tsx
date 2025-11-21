@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, StatusBar, Animated, Easing, Image } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Animated, Easing } from 'react-native';
 import { AppState, useAppStateStore } from '../stores/appStateStore';
 import { authLogger } from '../utils/logger';
 
@@ -32,7 +32,6 @@ const generateSessionId = () => {
 export default function AppLoadingScreen() {
   const { 
     currentState, 
-    loadingProgress, 
     error
   } = useAppStateStore();
   
@@ -50,7 +49,6 @@ export default function AppLoadingScreen() {
   React.useEffect(() => {
     authLogger.debug(`Loading screen rendered [${sessionId}]`, { 
       currentState, 
-      loadingProgress,
       timestamp: new Date().toISOString() 
     });
     
@@ -72,7 +70,7 @@ export default function AppLoadingScreen() {
       });
       clearInterval(messageInterval);
     };
-  }, [currentState, loadingProgress, sessionId]);
+  }, [currentState, sessionId]);
   
   // Animation functions
   const startAnimations = () => {
@@ -140,18 +138,6 @@ export default function AppLoadingScreen() {
         {/* Loading Messages */}
         <Text style={styles.loadingMessage}>{loadingMessage}</Text>
         
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBarContainer}>
-            <Animated.View 
-              style={[
-                styles.progressBar,
-                { width: `${loadingProgress}%` }
-              ]} 
-            />
-          </View>
-        </View>
-        
         {/* Error Display */}
         {error && (
           <View style={styles.errorContainer}>
@@ -212,23 +198,6 @@ const styles = StyleSheet.create({
     marginBottom: 25,
     textAlign: 'center',
     fontFamily: 'SpaceMono',
-  },
-  progressContainer: {
-    width: '90%',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  progressBarContainer: {
-    width: '100%',
-    height: 16,
-    backgroundColor: '#222',
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 5,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#00FF77',
   },
   errorContainer: {
     backgroundColor: 'rgba(255, 59, 48, 0.2)',

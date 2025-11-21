@@ -1,17 +1,29 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, Alert, StatusBar, Platform, Dimensions, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  Button,
+  StyleSheet,
+  Alert,
+  StatusBar,
+  ActivityIndicator,
+  TouchableOpacity,
+  Animated,
+  Easing,
+} from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { usePendingImageStore } from '../../stores/pendingImageStore';
 import { navigationLogger } from '../../utils/logger';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
+
+const PULSE_BASE_SIZE = 68;
 
 // Import the reusable components
 import CameraCaptureViewComponent from '../../components/CameraCaptureViewComponent';
 import CameraControlsComponent from '../../components/CameraControlsComponent';
 import ImagePreviewComponent from '../../components/ImagePreviewComponent';
-
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 export default function InitialCaptureScreen() {
   const router = useRouter();
@@ -22,20 +34,26 @@ export default function InitialCaptureScreen() {
   const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('back');
   const [flashMode, setFlashMode] = useState<'on' | 'off'>('off');
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
-  useEffect(() => {
-    if (!permission) {
-      requestPermission();
-    } else if (!permission.granted) {
-      // Consider showing an alert or a message explaining why permission is needed
-      // and potentially guide them to settings or offer to request again.
-      Alert.alert('Camera Permission Required', 'This feature needs camera access to work.', [
-        { text: 'Cancel', onPress: () => router.back(), style: 'cancel' },
-        { text: 'Grant Permission', onPress: requestPermission },
-      ]);
+  const requestCameraPermission = useCallback(async () => {
+    if (isRequestingPermission) {
+      return;
     }
-  }, [permission, requestPermission, router]);
+    setIsRequestingPermission(true);
+    try {
+      await requestPermission();
+    } catch (error) {
+      navigationLogger.error('[InitialCaptureScreen] Failed requesting camera permission', { error });
+    } finally {
+      setIsRequestingPermission(false);
+    }
+  }, [isRequestingPermission, requestPermission]);
+
+  const handleCameraPermissionChoice = useCallback(async () => {
+    await requestCameraPermission();
+  }, [requestCameraPermission]);
 
   const toggleCameraFacing = () => setCameraFacing(current => (current === 'back' ? 'front' : 'back'));
   const toggleFlash = () => setFlashMode(current => (current === 'off' ? 'on' : 'off'));
@@ -99,7 +117,10 @@ export default function InitialCaptureScreen() {
     setLocalCapturedImageUri(null); // Clear local preview to go back to camera view
   };
 
-  if (!permission) {
+  const isLoadingPermissionState = !permission;
+  const shouldShowCameraInterstitial = !!permission && permission.status === 'undetermined';
+
+  if (isLoadingPermissionState) {
     return (
       <View style={styles.centeredContainer}>
         <ActivityIndicator size="large" color="#00FF77" />
@@ -108,11 +129,25 @@ export default function InitialCaptureScreen() {
     );
   }
 
+  if (shouldShowCameraInterstitial) {
+    return (
+      <CameraPermissionAlert
+        onAllow={handleCameraPermissionChoice}
+        onDontAllow={handleCameraPermissionChoice}
+        isRequesting={isRequestingPermission}
+      />
+    );
+  }
+
   if (!permission.granted) {
     return (
       <View style={styles.centeredContainer}>
         <Text style={styles.loadingText}>Camera permission is required.</Text>
-        <Button title="Grant Permission" onPress={requestPermission} />
+        <Button
+          title={isRequestingPermission ? 'Requesting…' : 'Grant Permission'}
+          onPress={requestCameraPermission}
+          disabled={isRequestingPermission}
+        />
         {router.canGoBack() && <Button title="Go Back" onPress={() => router.back()} color="grey"/>}
       </View>
     );
@@ -162,6 +197,124 @@ export default function InitialCaptureScreen() {
   );
 }
 
+type CameraPermissionAlertProps = {
+  onAllow: () => void;
+  onDontAllow: () => void;
+  isRequesting: boolean;
+};
+
+function CameraPermissionAlert({ onAllow, onDontAllow, isRequesting }: CameraPermissionAlertProps) {
+  const pulseValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(pulseValue, {
+        toValue: 1,
+        duration: 1100,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      })
+    );
+
+    loop.start();
+    return () => {
+      loop.stop();
+    };
+  }, [pulseValue]);
+
+  const pulseScale = pulseValue.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [1, 1.55, 2.1],
+  });
+  const pulseOpacity = pulseValue.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0, 0.65, 0],
+  });
+
+  if (isRequesting) {
+    return (
+      <View style={styles.permissionOverlay}>
+        <StatusBar barStyle="light-content" />
+        <Stack.Screen options={{ headerShown: false }} />
+        <ActivityIndicator size="large" color="#00FF77" />
+        <Text style={styles.loadingText}>Requesting permission…</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.permissionOverlay}>
+      <StatusBar barStyle="light-content" />
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.permissionCard}>
+        <Text style={styles.permissionTitle}>Allow Dripmax access to your camera</Text>
+        <Text style={styles.permissionBody}>
+          Camera access lets you take photos of your outfits. You can change this access later in your system settings.
+        </Text>
+        <View style={styles.permissionButtonsRow}>
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={onDontAllow}
+            disabled={isRequesting}
+            activeOpacity={0.6}
+          >
+            <Text style={styles.permissionButtonText}>Don&apos;t Allow</Text>
+          </TouchableOpacity>
+          <View style={styles.permissionButtonDivider} />
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={onAllow}
+            disabled={isRequesting}
+            activeOpacity={0.6}
+          >
+            <View style={styles.allowButtonContent}>
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.pulseGlow,
+                  {
+                    opacity: pulseOpacity,
+                    transform: [{ scale: pulseScale }],
+                  },
+                ]}
+              >
+                <Svg width={PULSE_BASE_SIZE} height={PULSE_BASE_SIZE} viewBox={`0 0 ${PULSE_BASE_SIZE} ${PULSE_BASE_SIZE}`}>
+                  <Defs>
+                    <RadialGradient id="pulseGradient" cx="50%" cy="50%" rx="50%" ry="50%">
+                      <Stop offset="0%" stopColor="#007AFF" stopOpacity="0.95" />
+                      <Stop offset="45%" stopColor="#007AFF" stopOpacity="0.55" />
+                      <Stop offset="75%" stopColor="#007AFF" stopOpacity="0.2" />
+                      <Stop offset="100%" stopColor="#007AFF" stopOpacity="0" />
+                    </RadialGradient>
+                  </Defs>
+                  <Circle
+                    cx={PULSE_BASE_SIZE / 2}
+                    cy={PULSE_BASE_SIZE / 2}
+                    r={PULSE_BASE_SIZE / 2}
+                    fill="url(#pulseGradient)"
+                  />
+                  <Circle
+                    cx={PULSE_BASE_SIZE / 2}
+                    cy={PULSE_BASE_SIZE / 2}
+                    r={(PULSE_BASE_SIZE / 2) - 1}
+                    stroke="#007AFF"
+                    strokeOpacity={0.8}
+                    strokeWidth={2}
+                    fill="transparent"
+                  />
+                </Svg>
+              </Animated.View>
+              <Text style={[styles.permissionButtonText, styles.permissionButtonPrimary]}>
+                Allow
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -181,5 +334,73 @@ const styles = StyleSheet.create({
   },
   cameraViewStyle: {
     flex: 1,
-  }
+  },
+  permissionOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  permissionCard: {
+    width: '90%',
+    maxWidth: 320,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 14,
+    paddingTop: 28,
+    paddingHorizontal: 20,
+    paddingBottom: 0,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+  },
+  permissionTitle: {
+    color: '#000',
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  permissionBody: {
+    color: '#1C1C1E',
+    fontSize: 15,
+    lineHeight: 20,
+    marginTop: 12,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  permissionButtonsRow: {
+    flexDirection: 'row',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#C7C7CC',
+  },
+  permissionButton: {
+    flex: 1,
+    paddingVertical: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  permissionButtonDivider: {
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: '#C7C7CC',
+  },
+  permissionButtonText: {
+    color: '#007AFF',
+    fontSize: 17,
+  },
+  permissionButtonPrimary: {
+    fontWeight: '600',
+  },
+  allowButtonContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
+  },
+  pulseGlow: {
+    position: 'absolute',
+    width: PULSE_BASE_SIZE,
+    height: PULSE_BASE_SIZE,
+    top: -PULSE_BASE_SIZE / 2 + 12,
+    alignSelf: 'center',
+  },
 }); 
