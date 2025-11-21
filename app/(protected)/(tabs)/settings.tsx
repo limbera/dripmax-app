@@ -227,7 +227,7 @@ export default function SettingsScreen() {
         </View>
         
         <Text style={styles.versionText}>
-          Version 1.2.4
+          Version 1.2.5
         </Text>
       </ScrollView>
     </SafeAreaView>
